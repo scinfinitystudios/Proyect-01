@@ -14,35 +14,77 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import java.util.UUID
+
+private val Navy = Color(0xFF08111F)
+private val Panel = Color(0xFF121F32)
+private val PanelSoft = Color(0xFF192A40)
+private val Cyan = Color(0xFF54D6D0)
+private val Muted = Color(0xFF9CB0C7)
+private val Good = Color(0xFF78E0AE)
+
+private val WatchColors = darkColorScheme(
+    primary = Cyan,
+    onPrimary = Navy,
+    secondary = Color(0xFF9BBAFF),
+    background = Navy,
+    onBackground = Color(0xFFF3F7FC),
+    surface = Panel,
+    onSurface = Color(0xFFF3F7FC),
+    surfaceVariant = PanelSoft,
+    onSurfaceVariant = Muted
+)
 
 data class BleEntry(val name: String, val address: String, val device: BluetoothDevice)
 
 class MainActivity : ComponentActivity() {
     private val devices = mutableStateListOf<BleEntry>()
     private val gattRows = mutableStateListOf<String>()
-    private var status by mutableStateOf("Listo. Activa Bluetooth y busca el reloj.")
+    private var status by mutableStateOf("Listo para buscar dispositivos cercanos.")
+    private var isScanning by mutableStateOf(false)
+    private var isConnected by mutableStateOf(false)
+    private var connectedName by mutableStateOf("")
     private var connectedGatt: BluetoothGatt? = null
+
     private val adapter: BluetoothAdapter? by lazy {
         (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
     }
@@ -72,14 +114,17 @@ class MainActivity : ComponentActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
             val address = try { device.address } catch (_: SecurityException) { "Dirección protegida" }
-            val name = result.scanRecord?.deviceName ?: try { device.name } catch (_: SecurityException) { null } ?: "Dispositivo BLE"
+            val name = result.scanRecord?.deviceName
+                ?: try { device.name } catch (_: SecurityException) { null }
+                ?: "Dispositivo BLE"
             if (devices.none { it.address == address }) {
                 devices.add(BleEntry(name, address, device))
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
-            status = "Error de escaneo BLE: $errorCode"
+            isScanning = false
+            status = "No se pudo completar el escaneo (código $errorCode)."
         }
     }
 
@@ -93,28 +138,53 @@ class MainActivity : ComponentActivity() {
             devices.clear()
             gattRows.clear()
             status = "Buscando dispositivos BLE durante 10 segundos…"
-            bluetoothAdapter.bluetoothLeScanner?.startScan(scanCallback)
+            isScanning = true
+            val scanner = bluetoothAdapter.bluetoothLeScanner
+            if (scanner == null) {
+                isScanning = false
+                status = "El escáner Bluetooth LE no está disponible."
+                return
+            }
+            scanner.startScan(scanCallback)
             window.decorView.postDelayed({
-                try { bluetoothAdapter.bluetoothLeScanner?.stopScan(scanCallback) } catch (_: SecurityException) { }
-                status = "Escaneo finalizado: ${devices.size} dispositivo(s)."
+                stopScan()
+                if (status.startsWith("Buscando")) {
+                    status = "Búsqueda finalizada: ${devices.size} dispositivo(s) encontrado(s)."
+                }
             }, 10_000)
         } catch (e: SecurityException) {
+            isScanning = false
             status = "Permiso Bluetooth insuficiente: ${e.message}"
         }
     }
 
+    private fun stopScan() {
+        try {
+            adapter?.bluetoothLeScanner?.stopScan(scanCallback)
+        } catch (_: SecurityException) {
+            status = "No se pudo detener el escaneo por falta de permiso."
+        }
+        isScanning = false
+    }
+
     private fun connect(entry: BleEntry) {
         try {
-            status = "Conectando a ${entry.name}…"
+            stopScan()
+            status = "Conectando con ${entry.name}…"
             connectedGatt?.close()
             connectedGatt = entry.device.connectGatt(this, false, object : BluetoothGattCallback() {
                 override fun onConnectionStateChange(gatt: BluetoothGatt, statusCode: Int, newState: Int) {
                     runOnUiThread {
-                        if (newState == BluetoothProfile.STATE_CONNECTED) {
-                            status = "Conectado. Descubriendo servicios GATT…"
+                        if (newState == BluetoothProfile.STATE_CONNECTED && statusCode == BluetoothGatt.GATT_SUCCESS) {
+                            isConnected = true
+                            connectedName = entry.name
+                            status = "Conexión establecida. Explorando servicios…"
                             gatt.discoverServices()
                         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                            status = "Desconectado."
+                            isConnected = false
+                            connectedName = ""
+                            status = if (statusCode == BluetoothGatt.GATT_SUCCESS) "Reloj desconectado."
+                                else "Conexión finalizada (código $statusCode)."
                             gattRows.clear()
                         }
                     }
@@ -129,57 +199,112 @@ class MainActivity : ComponentActivity() {
                                 service.characteristics.forEach { characteristic ->
                                     val p = characteristic.properties
                                     val flags = buildList {
-                                        if (p and 0x02 != 0) add("READ")
-                                        if (p and 0x04 != 0) add("WRITE NO RESPONSE")
-                                        if (p and 0x08 != 0) add("WRITE")
+                                        if (p and 0x02 != 0) add("LECTURA")
+                                        if (p and 0x04 != 0) add("ESCRITURA SIN RESPUESTA")
+                                        if (p and 0x08 != 0) add("ESCRITURA")
                                         if (p and 0x10 != 0) add("NOTIFY")
                                         if (p and 0x20 != 0) add("INDICATE")
-                                    }.joinToString(", ")
-                                    gattRows.add("  ${characteristic.uuid}  [${flags.ifBlank { "sin propiedades conocidas" }}]")
+                                    }.joinToString(" · ")
+                                    gattRows.add("  ${characteristic.uuid}\n  ${flags.ifBlank { "Propiedades no identificadas" }}")
                                 }
                             }
-                            status = "Conectado. ${gattRows.count { it.startsWith("SERVICIO") }} servicio(s) descubiertos. Solo lectura."
-                        } else status = "Falló el descubrimiento GATT: $statusCode"
+                            status = "Exploración completada: ${gatt.services.size} servicio(s). Modo seguro de solo lectura."
+                        } else {
+                            status = "No se pudieron descubrir los servicios GATT (código $statusCode)."
+                        }
                     }
                 }
             }, BluetoothDevice.TRANSPORT_LE)
-        } catch (e: SecurityException) {
-            status = "No se pudo conectar: permiso Bluetooth insuficiente."
+        } catch (_: SecurityException) {
+            status = "No se pudo conectar: falta permiso Bluetooth."
+        }
+    }
+
+    private fun disconnect() {
+        try {
+            connectedGatt?.disconnect()
+            status = "Desconectando del reloj…"
+        } catch (_: SecurityException) {
+            status = "No se pudo desconectar: falta permiso Bluetooth."
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("WATCH1 CONNECT MANAGER", style = MaterialTheme.typography.headlineSmall)
-                        Text("Bluetooth LE · Exploración segura de solo lectura")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { requestPermissionsAndScan() }) { Text("Buscar") }
-                            Button(onClick = {
-                                try { connectedGatt?.disconnect(); status = "Desconectando…" }
-                                catch (_: SecurityException) { status = "Permiso Bluetooth insuficiente." }
-                            }) { Text("Desconectar") }
-                        }
-                        Text(status, style = MaterialTheme.typography.bodyMedium)
-                        Text("Dispositivos encontrados", style = MaterialTheme.typography.titleMedium)
-                        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(devices, key = { it.address }) { entry ->
-                                Card(Modifier.fillMaxWidth()) {
-                                    Column(Modifier.padding(12.dp)) {
-                                        Text(entry.name, style = MaterialTheme.typography.titleMedium)
-                                        Text(entry.address, style = MaterialTheme.typography.bodySmall)
-                                        Button(onClick = { connect(entry) }) { Text("Conectar y explorar GATT") }
-                                    }
+            MaterialTheme(colorScheme = WatchColors) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Navy) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFF10243A), Navy, Color(0xFF070D17))
+                                )
+                            )
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            HeaderSection()
+                            ConnectionStatusCard(
+                                connected = isConnected,
+                                scanning = isScanning,
+                                deviceName = connectedName,
+                                status = status
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = { requestPermissionsAndScan() },
+                                    enabled = !isScanning,
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Cyan,
+                                        contentColor = Navy
+                                    )
+                                ) {
+                                    Text(if (isScanning) "BUSCANDO…" else "BUSCAR RELOJ", fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(
+                                    onClick = { if (isScanning) stopScan() else disconnect() },
+                                    modifier = Modifier.height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF38516B))
+                                ) {
+                                    Text(if (isScanning) "DETENER" else "DESCONECTAR", fontWeight = FontWeight.SemiBold)
                                 }
                             }
-                            item { Text("Servicios y características GATT", style = MaterialTheme.typography.titleMedium) }
-                            items(gattRows) { row -> Text(row, style = MaterialTheme.typography.bodySmall) }
+
+                            SectionHeading("Dispositivos cercanos", "${devices.size} encontrados")
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (devices.isEmpty()) {
+                                    item {
+                                        EmptyDevicesCard(scanning = isScanning)
+                                    }
+                                }
+                                items(devices, key = { it.address }) { entry ->
+                                    DeviceCard(entry = entry, onConnect = { connect(entry) })
+                                }
+                                if (gattRows.isNotEmpty()) {
+                                    item {
+                                        Spacer(Modifier.height(4.dp))
+                                        SectionHeading("Explorador GATT", "${gattRows.count { it.startsWith("SERVICIO") }} servicios")
+                                    }
+                                    items(gattRows) { row ->
+                                        GattRow(row)
+                                    }
+                                }
+                                item {
+                                    SafetyNote()
+                                    Spacer(Modifier.height(10.dp))
+                                }
+                            }
                         }
-                        Text("Las escrituras y comandos están deshabilitados: protocolo aún no identificado.",
-                            style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -187,8 +312,205 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        try { connectedGatt?.close() } catch (_: SecurityException) { }
+        try {
+            adapter?.bluetoothLeScanner?.stopScan(scanCallback)
+            connectedGatt?.close()
+        } catch (_: SecurityException) { }
         connectedGatt = null
         super.onDestroy()
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun HeaderSection() {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(42.dp).background(
+                    Brush.linearGradient(listOf(Cyan, Color(0xFF6B9FFF))),
+                    RoundedCornerShape(14.dp)
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("W1", color = Navy, fontWeight = FontWeight.Black, fontSize = 17.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("WATCH1", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.4.sp)
+                Text("CONNECT MANAGER", fontSize = 11.sp, color = Muted, letterSpacing = 2.2.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.weight(1f))
+            Surface(color = Color(0xFF173A3C), shape = CircleShape) {
+                Text("BETA", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp))
+            }
+        }
+        Text(
+            "Gestiona y diagnostica tu conexión Bluetooth LE.",
+            color = Muted,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun ConnectionStatusCard(connected: Boolean, scanning: Boolean, deviceName: String, status: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(9.dp).background(
+                        when {
+                            connected -> Good
+                            scanning -> Cyan
+                            else -> Color(0xFF71849B)
+                        }, CircleShape
+                    )
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    when {
+                        connected -> "RELOJ CONECTADO"
+                        scanning -> "ESCANEANDO DISPOSITIVOS"
+                        else -> "ESTADO DE CONEXIÓN"
+                    },
+                    color = when {
+                        connected -> Good
+                        scanning -> Cyan
+                        else -> Muted
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+            }
+            Text(
+                when {
+                    connected -> deviceName.ifBlank { "Watch1" }
+                    scanning -> "Buscando tu Watch1"
+                    else -> "Listo para conectar"
+                },
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(status, color = Muted, style = MaterialTheme.typography.bodySmall)
+            if (scanning) LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = Cyan,
+                trackColor = PanelSoft
+            )
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun SectionHeading(title: String, detail: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.weight(1f))
+        Text(detail, color = Muted, fontSize = 11.sp)
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun DeviceCard(entry: BleEntry, onConnect: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(38.dp).background(PanelSoft, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) { Text("⌚", fontSize = 19.sp) }
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(entry.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(entry.address, color = Muted, fontSize = 11.sp)
+                }
+                Surface(color = Color(0xFF173A3C), shape = CircleShape) {
+                    Text("BLE", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
+                }
+            }
+            FilledTonalButton(
+                onClick = onConnect,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(containerColor = PanelSoft, contentColor = Cyan)
+            ) {
+                Text("CONECTAR Y EXPLORAR", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun EmptyDevicesCard(scanning: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.8f)),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 26.dp, horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("⌚", fontSize = 30.sp)
+            Text(if (scanning) "Buscando dispositivos…" else "Aún no hay dispositivos", fontWeight = FontWeight.Bold)
+            Text(
+                if (scanning) "Mantén el reloj encendido y cerca del teléfono."
+                else "Pulsa «Buscar reloj» para comenzar el escaneo Bluetooth.",
+                color = Muted,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun GattRow(row: String) {
+    val isService = row.startsWith("SERVICIO")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(13.dp),
+        colors = CardDefaults.cardColors(containerColor = if (isService) PanelSoft else Panel)
+    ) {
+        Text(
+            row,
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+            color = if (isService) Cyan else Muted,
+            fontSize = if (isService) 11.sp else 10.sp,
+            fontWeight = if (isService) FontWeight.Bold else FontWeight.Normal,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun SafetyNote() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF302817)),
+        border = BorderStroke(1.dp, Color(0xFF62502B))
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("MODO SEGURO · SOLO LECTURA", color = Color(0xFFFFD58A), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+            Text(
+                "Las escrituras y los comandos todavía no están habilitados. Primero debemos identificar y validar el protocolo del Watch1.",
+                color = Color(0xFFD8C9A8),
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
+        }
     }
 }
