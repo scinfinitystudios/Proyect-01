@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
     private val gattRows = mutableStateListOf<String>()
     private val protocolRows = mutableStateListOf<String>()
     private val pendingReads = ArrayDeque<BluetoothGattCharacteristic>()
+    private val pendingDescriptors = ArrayDeque<BluetoothGattDescriptor>()
     private var activeRead: BluetoothGattCharacteristic? = null
     private var status by mutableStateOf("Listo para buscar dispositivos cercanos.")
     private var isScanning by mutableStateOf(false)
@@ -196,6 +197,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                override fun onDescriptorWrite(
+                    gatt: BluetoothGatt,
+                    descriptor: BluetoothGattDescriptor,
+                    statusCode: Int
+                ) {
+                    runOnUiThread {
+                        protocolRows.add(
+                            if (statusCode == BluetoothGatt.GATT_SUCCESS) "CCCD ${descriptor.characteristic.uuid}: listo"
+                            else "CCCD ${descriptor.characteristic.uuid}: error GATT $statusCode"
+                        )
+                        writeNextDescriptor(gatt)
+                    }
+                }
+
                 @Suppress("DEPRECATION")
                 override fun onCharacteristicRead(
                     gatt: BluetoothGatt,
@@ -261,6 +276,7 @@ class MainActivity : ComponentActivity() {
 
     private fun beginSafeProtocolInspection(gatt: BluetoothGatt) {
         pendingReads.clear()
+        pendingDescriptors.clear()
         activeRead = null
         protocolRows.clear()
         val readableStandardIds = setOf(
@@ -284,19 +300,30 @@ class MainActivity : ComponentActivity() {
                     if (enabled && cccd != null) {
                         @Suppress("DEPRECATION")
                         cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                        @Suppress("DEPRECATION")
-                        val queued = gatt.writeDescriptor(cccd)
-                        protocolRows.add(
-                            if (queued) "LISTEN ${characteristic.uuid}: notificaciones activadas"
-                            else "LISTEN ${characteristic.uuid}: no se pudo activar"
-                        )
+                        pendingDescriptors.add(cccd)
+                    } else {
+                        protocolRows.add("LISTEN ${characteristic.uuid}: no compatible descriptor")
                     }
                 }
             }
         }
         protocolRows.add("INFO: número de serie excluido por privacidad.")
         protocolRows.add("INFO: no se envían comandos propietarios ni escrituras de datos.")
-        readNextSafeCharacteristic(gatt)
+        writeNextDescriptor(gatt)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun writeNextDescriptor(gatt: BluetoothGatt) {
+        if (pendingDescriptors.isEmpty()) {
+            readNextSafeCharacteristic(gatt)
+            return
+        }
+        val descriptor = pendingDescriptors.removeFirst()
+        val started = try { gatt.writeDescriptor(descriptor) } catch (_: SecurityException) { false }
+        if (!started) {
+            protocolRows.add("CCCD ${descriptor.characteristic.uuid}: no se pudo iniciar")
+            writeNextDescriptor(gatt)
+        }
     }
 
     @Suppress("DEPRECATION")
