@@ -15,6 +15,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -98,6 +99,8 @@ class MainActivity : ComponentActivity() {
     private var connectedGatt: BluetoothGatt? = null
     private var selectedWallpaper by mutableStateOf<Bitmap?>(null)
     private var wallpaperMessage by mutableStateOf("Elige una fotografía para previsualizarla.")
+    private val diagnosticResults = mutableStateListOf<Pair<String, String>>()
+    private var diagnosticMessage by mutableStateOf("Pulsa VALIDAR FUNCIONES para ejecutar las comprobaciones disponibles.")
 
     private val wallpaperPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri == null) return@registerForActivityResult
@@ -366,6 +369,61 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun runDiagnostics() {
+        diagnosticResults.clear()
+        diagnosticMessage = "Comprobación completada. Los resultados distinguen funciones detectables de funciones que requieren protocolo."
+        val bluetoothOn = try { adapter?.isEnabled == true } catch (_: SecurityException) { false }
+        diagnosticResults.add("Bluetooth del teléfono" to if (bluetoothOn) "VALIDADO · Activado" else "NO DISPONIBLE · Activa Bluetooth")
+        val permissionsOk = hasPermissions()
+        diagnosticResults.add("Permisos Bluetooth" to if (permissionsOk) "VALIDADO · Concedidos" else "PENDIENTE · Concede permisos de dispositivos cercanos")
+        val gatt = connectedGatt
+        val connected = isConnected && gatt != null
+        diagnosticResults.add("Conexión con Watch1" to if (connected) "VALIDADO · Conectado" else "SIN CONEXIÓN · Conecta el reloj primero")
+        val services = if (connected) try { gatt!!.services } catch (_: SecurityException) { emptyList() } else emptyList()
+        val allCharacteristics = services.flatMap { it.characteristics }
+        val batteryUuid = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
+        val infoUuids = setOf(
+            UUID.fromString("00002a26-0000-1000-8000-00805f9b34fb"),
+            UUID.fromString("00002a27-0000-1000-8000-00805f9b34fb"),
+            UUID.fromString("00002a28-0000-1000-8000-00805f9b34fb")
+        )
+        val hasBattery = allCharacteristics.any { it.uuid == batteryUuid && it.properties and BluetoothGattCharacteristic.PROPERTY_READ != 0 }
+        val hasInfo = allCharacteristics.any { it.uuid in infoUuids && it.properties and BluetoothGattCharacteristic.PROPERTY_READ != 0 }
+        val hasNotify = allCharacteristics.any { it.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0 }
+        diagnosticResults.add("Lectura de batería" to when {
+            !connected -> "SIN CONEXIÓN · No se puede comprobar"
+            hasBattery -> "DISPONIBLE · Característica estándar detectada; lectura pendiente/en curso"
+            else -> "NO DETECTADA · El reloj no expone la característica estándar"
+        })
+        diagnosticResults.add("Información del dispositivo" to when {
+            !connected -> "SIN CONEXIÓN · No se puede comprobar"
+            hasInfo -> "DISPONIBLE · Características estándar detectadas"
+            else -> "NO DETECTADA · No se encontraron datos estándar compatibles"
+        })
+        diagnosticResults.add("Canal de notificaciones BLE" to when {
+            !connected -> "SIN CONEXIÓN · No se puede comprobar"
+            hasNotify -> "DISPONIBLE · Hay características NOTIFY; no confirma avisos del teléfono"
+            else -> "NO DETECTADO · No hay características NOTIFY"
+        })
+        val notificationAccess = try {
+            Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                ?.split(":")
+                ?.any { it.contains(packageName, ignoreCase = true) } == true
+        } catch (_: Exception) { false }
+        diagnosticResults.add("Acceso a notificaciones del teléfono" to if (notificationAccess) {
+            "VALIDADO · Acceso concedido"
+        } else {
+            "PENDIENTE · Acceso especial no concedido"
+        })
+        diagnosticResults.add("Llamadas, alarmas, música y sincronización" to "PENDIENTE · Requiere identificar y probar comandos compatibles")
+        diagnosticResults.add("Transferencia de fondo al reloj" to if (selectedWallpaper != null) {
+            "PENDIENTE · Foto cargada en el teléfono; transferencia no probada"
+        } else {
+            "PENDIENTE · Selecciona una foto; protocolo de transferencia no validado"
+        })
+        diagnosticResults.add("Carátulas y firmware" to "BLOQUEADO POR SEGURIDAD · No se envían comandos propietarios desconocidos")
+    }
+
     private fun disconnect() {
         try {
             connectedGatt?.disconnect()
@@ -437,6 +495,13 @@ class MainActivity : ComponentActivity() {
                                             selectedWallpaper = null
                                             wallpaperMessage = "Elige una fotografía para previsualizarla."
                                         }
+                                    )
+                                }
+                                item {
+                                    DiagnosticSection(
+                                        message = diagnosticMessage,
+                                        results = diagnosticResults,
+                                        onValidate = { runDiagnostics() }
                                     )
                                 }
                                 item { FeatureSections(connected = isConnected) }
@@ -722,6 +787,49 @@ private fun WallpaperSection(
                     OutlinedButton(onClick = onClear, shape = RoundedCornerShape(12.dp)) {
                         Text("QUITAR", fontSize = 11.sp)
                     }
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun DiagnosticSection(
+    message: String,
+    results: List<Pair<String, String>>,
+    onValidate: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeading("Diagnóstico automático", "Pruebas seguras")
+            Text(
+                "Comprueba Bluetooth, conexión, permisos y servicios que el reloj realmente expone. Las funciones propietarias no se marcarán como compatibles sin pruebas.",
+                color = Muted,
+                fontSize = 11.sp,
+                lineHeight = 16.sp
+            )
+            Button(
+                onClick = onValidate,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Navy)
+            ) {
+                Text("VALIDAR FUNCIONES", fontWeight = FontWeight.Bold)
+            }
+            Text(message, color = Muted, fontSize = 10.sp)
+            results.forEach { (name, result) ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(name, color = Color(0xFFF3F7FC), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(result, color = when {
+                        result.startsWith("VALIDADO") || result.startsWith("DISPONIBLE") -> Good
+                        result.startsWith("PENDIENTE") || result.startsWith("SIN CONEXIÓN") -> Color(0xFFFFD58A)
+                        else -> Muted
+                    }, fontSize = 10.sp, lineHeight = 14.sp)
                 }
             }
         }
