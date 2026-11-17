@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import java.util.UUID
 
 private val Navy = Color(0xFF08111F)
 private val Panel = Color(0xFF121F32)
@@ -79,6 +82,9 @@ data class BleEntry(val name: String, val address: String, val device: Bluetooth
 class MainActivity : ComponentActivity() {
     private val devices = mutableStateListOf<BleEntry>()
     private val gattRows = mutableStateListOf<String>()
+    private val protocolRows = mutableStateListOf<String>()
+    private val pendingReads = ArrayDeque<BluetoothGattCharacteristic>()
+    private var activeRead: BluetoothGattCharacteristic? = null
     private var status by mutableStateOf("Listo para buscar dispositivos cercanos.")
     private var isScanning by mutableStateOf(false)
     private var isConnected by mutableStateOf(false)
@@ -190,6 +196,38 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                @Suppress("DEPRECATION")
+                override fun onCharacteristicRead(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic,
+                    statusCode: Int
+                ) {
+                    runOnUiThread {
+                        if (statusCode == BluetoothGatt.GATT_SUCCESS) {
+                            val bytes = characteristic.value ?: byteArrayOf()
+                            val hex = bytes.joinToString(" ") { "%02X".format(it) }
+                            val decoded = bytes.toString(Charsets.UTF_8).filter { it.isLetterOrDigit() || it.isWhitespace() || it in "-_./:" }
+                            protocolRows.add("READ ${characteristic.uuid}: ${hex.ifBlank { "(vacío)" }}${if (decoded.isNotBlank()) " | $decoded" else ""}")
+                        } else {
+                            protocolRows.add("READ ${characteristic.uuid}: error GATT $statusCode")
+                        }
+                        activeRead = null
+                        readNextSafeCharacteristic(gatt)
+                    }
+                }
+
+                @Suppress("DEPRECATION")
+                override fun onCharacteristicChanged(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic
+                ) {
+                    val bytes = characteristic.value ?: byteArrayOf()
+                    val hex = bytes.joinToString(" ") { "%02X".format(it) }
+                    runOnUiThread {
+                        protocolRows.add("NOTIFY ${characteristic.uuid}: ${hex.ifBlank { "(vacío)" }}")
+                    }
+                }
+
                 override fun onServicesDiscovered(gatt: BluetoothGatt, statusCode: Int) {
                     runOnUiThread {
                         gattRows.clear()
@@ -208,7 +246,8 @@ class MainActivity : ComponentActivity() {
                                     gattRows.add("  ${characteristic.uuid}\n  ${flags.ifBlank { "Propiedades no identificadas" }}")
                                 }
                             }
-                            status = "Exploración completada: ${gatt.services.size} servicio(s). Modo seguro de solo lectura."
+                            status = "Servicios detectados. Analizando datos estándar y escuchando notificaciones…"
+                            beginSafeProtocolInspection(gatt)
                         } else {
                             status = "No se pudieron descubrir los servicios GATT (código $statusCode)."
                         }
@@ -217,6 +256,64 @@ class MainActivity : ComponentActivity() {
             }, BluetoothDevice.TRANSPORT_LE)
         } catch (_: SecurityException) {
             status = "No se pudo conectar: falta permiso Bluetooth."
+        }
+    }
+
+    private fun beginSafeProtocolInspection(gatt: BluetoothGatt) {
+        pendingReads.clear()
+        activeRead = null
+        protocolRows.clear()
+        val readableStandardIds = setOf(
+            UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb"),
+            UUID.fromString("00002a27-0000-1000-8000-00805f9b34fb"),
+            UUID.fromString("00002a26-0000-1000-8000-00805f9b34fb"),
+            UUID.fromString("00002a28-0000-1000-8000-00805f9b34fb")
+        )
+        gatt.services.forEach { service ->
+            service.characteristics.forEach { characteristic ->
+                val properties = characteristic.properties
+                if (properties and BluetoothGattCharacteristic.PROPERTY_READ != 0 &&
+                    characteristic.uuid in readableStandardIds
+                ) pendingReads.add(characteristic)
+
+                if (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+                    val enabled = gatt.setCharacteristicNotification(characteristic, true)
+                    val cccd = characteristic.getDescriptor(
+                        UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+                    )
+                    if (enabled && cccd != null) {
+                        @Suppress("DEPRECATION")
+                        cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        @Suppress("DEPRECATION")
+                        val queued = gatt.writeDescriptor(cccd)
+                        protocolRows.add(
+                            if (queued) "LISTEN ${characteristic.uuid}: notificaciones activadas"
+                            else "LISTEN ${characteristic.uuid}: no se pudo activar"
+                        )
+                    }
+                }
+            }
+        }
+        protocolRows.add("INFO: número de serie excluido por privacidad.")
+        protocolRows.add("INFO: no se envían comandos propietarios ni escrituras de datos.")
+        readNextSafeCharacteristic(gatt)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun readNextSafeCharacteristic(gatt: BluetoothGatt) {
+        if (activeRead != null || pendingReads.isEmpty()) {
+            if (activeRead == null && pendingReads.isEmpty()) {
+                status = "Análisis pasivo terminado. Esperando datos del reloj…"
+            }
+            return
+        }
+        val next = pendingReads.removeFirst()
+        activeRead = next
+        val started = try { gatt.readCharacteristic(next) } catch (_: SecurityException) { false }
+        if (!started) {
+            protocolRows.add("READ ${next.uuid}: no se pudo iniciar")
+            activeRead = null
+            readNextSafeCharacteristic(gatt)
         }
     }
 
@@ -295,9 +392,14 @@ class MainActivity : ComponentActivity() {
                                         Spacer(Modifier.height(4.dp))
                                         SectionHeading("Explorador GATT", "${gattRows.count { it.startsWith("SERVICIO") }} servicios")
                                     }
-                                    items(gattRows) { row ->
-                                        GattRow(row)
+                                    items(gattRows) { row -> GattRow(row) }
+                                }
+                                if (protocolRows.isNotEmpty()) {
+                                    item {
+                                        Spacer(Modifier.height(4.dp))
+                                        SectionHeading("Analizador de protocolo", "${protocolRows.size} eventos")
                                     }
+                                    items(protocolRows) { row -> GattRow(row) }
                                 }
                                 item {
                                     SafetyNote()
