@@ -1,12 +1,9 @@
-"""WATCH1 CONNECT MANAGER — desktop BLE discovery prototype.
-
-Read-only by design: scans, connects, and discovers GATT. No write operation
-is exposed while the Watch1 protocol remains unknown.
-"""
+"""WATCH1 CONNECT MANAGER — desktop BLE discovery prototype (read-only)."""
 from __future__ import annotations
 
 import asyncio
 import sys
+import threading
 from typing import Optional
 
 from bleak import BleakClient, BleakScanner
@@ -26,10 +23,20 @@ class BleWorker(QObject):
     def __init__(self) -> None:
         super().__init__()
         self.client: Optional[BleakClient] = None
+        self.loop = asyncio.new_event_loop()
+        self.thread = threading.Thread(target=self._run_loop, daemon=True)
+        self.thread.start()
+
+    def _run_loop(self) -> None:
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
+    def _submit(self, coroutine) -> None:
+        asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
     @Slot()
     def scan(self) -> None:
-        asyncio.create_task(self._scan())
+        self._submit(self._scan())
 
     async def _scan(self) -> None:
         self.status.emit("Buscando dispositivos BLE…")
@@ -44,7 +51,7 @@ class BleWorker(QObject):
 
     @Slot(str)
     def connect_device(self, address: str) -> None:
-        asyncio.create_task(self._connect(address))
+        self._submit(self._connect(address))
 
     async def _connect(self, address: str) -> None:
         try:
@@ -66,7 +73,7 @@ class BleWorker(QObject):
 
     @Slot()
     def disconnect_device(self) -> None:
-        asyncio.create_task(self._disconnect())
+        self._submit(self._disconnect())
 
     async def _disconnect(self) -> None:
         try:
@@ -76,6 +83,17 @@ class BleWorker(QObject):
         except Exception as exc:
             self.failed.emit(str(exc))
 
+    def shutdown(self) -> None:
+        async def close_client():
+            if self.client and self.client.is_connected:
+                await self.client.disconnect()
+        future = asyncio.run_coroutine_threadsafe(close_client(), self.loop)
+        try:
+            future.result(timeout=3)
+        except Exception:
+            pass
+        self.loop.call_soon_threadsafe(self.loop.stop)
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
@@ -83,14 +101,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("WATCH1 CONNECT MANAGER")
         self.resize(920, 640)
         self.worker = BleWorker()
-
         root = QWidget()
         layout = QVBoxLayout(root)
         heading = QLabel("WATCH1 CONNECT MANAGER")
         heading.setStyleSheet("font-size: 22px; font-weight: 700;")
         layout.addWidget(heading)
         layout.addWidget(QLabel("Exploración Bluetooth LE · modo seguro de solo lectura"))
-
         buttons = QHBoxLayout()
         self.scan_button = QPushButton("Buscar dispositivos")
         self.connect_button = QPushButton("Conectar seleccionado")
@@ -98,7 +114,6 @@ class MainWindow(QMainWindow):
         for button in (self.scan_button, self.connect_button, self.disconnect_button):
             buttons.addWidget(button)
         layout.addLayout(buttons)
-
         split = QHBoxLayout()
         self.devices = QTreeWidget()
         self.devices.setHeaderLabels(["Dispositivos BLE", "Dirección"])
@@ -107,11 +122,9 @@ class MainWindow(QMainWindow):
         split.addWidget(self.devices, 1)
         split.addWidget(self.gatt, 2)
         layout.addLayout(split)
-
         self.status_label = QLabel("Listo. Pulsa «Buscar dispositivos».")
         layout.addWidget(self.status_label)
         self.setCentralWidget(root)
-
         self.scan_button.clicked.connect(self.worker.scan)
         self.connect_button.clicked.connect(self._connect_selected)
         self.disconnect_button.clicked.connect(self.worker.disconnect_device)
@@ -119,7 +132,6 @@ class MainWindow(QMainWindow):
         self.worker.services_found.connect(self._show_services)
         self.worker.status.connect(self.status_label.setText)
         self.worker.failed.connect(self._show_error)
-
         self.setStyleSheet("""
             QMainWindow, QWidget { background: #101722; color: #e8eef7; }
             QPushButton { background: #1769aa; padding: 10px; border-radius: 6px; }
@@ -153,6 +165,10 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def _show_error(self, message: str) -> None:
         QMessageBox.warning(self, "Bluetooth LE", message)
+
+    def closeEvent(self, event) -> None:
+        self.worker.shutdown()
+        super().closeEvent(event)
 
 
 def main() -> int:
