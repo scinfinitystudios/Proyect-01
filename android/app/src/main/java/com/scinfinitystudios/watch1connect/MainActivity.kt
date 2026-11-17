@@ -394,16 +394,6 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             HeaderSection()
-                            WallpaperSection(
-                                bitmap = selectedWallpaper,
-                                message = wallpaperMessage,
-                                onChoose = { wallpaperPicker.launch("image/*") },
-                                onClear = {
-                                    selectedWallpaper = null
-                                    wallpaperMessage = "Elige una fotografía para previsualizarla."
-                                }
-                            )
-                            FeatureSections(connected = isConnected)
                             ConnectionStatusCard(
                                 connected = isConnected,
                                 scanning = isScanning,
@@ -438,6 +428,18 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                item {
+                                    WallpaperSection(
+                                        bitmap = selectedWallpaper,
+                                        message = wallpaperMessage,
+                                        onChoose = { wallpaperPicker.launch("image/*") },
+                                        onClear = {
+                                            selectedWallpaper = null
+                                            wallpaperMessage = "Elige una fotografía para previsualizarla."
+                                        }
+                                    )
+                                }
+                                item { FeatureSections(connected = isConnected) }
                                 if (devices.isEmpty()) {
                                     item {
                                         EmptyDevicesCard(scanning = isScanning)
