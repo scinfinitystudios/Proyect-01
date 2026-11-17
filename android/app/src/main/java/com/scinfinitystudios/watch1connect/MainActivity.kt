@@ -11,12 +11,16 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,6 +96,23 @@ class MainActivity : ComponentActivity() {
     private var isConnected by mutableStateOf(false)
     private var connectedName by mutableStateOf("")
     private var connectedGatt: BluetoothGatt? = null
+    private var selectedWallpaper by mutableStateOf<Bitmap?>(null)
+    private var wallpaperMessage by mutableStateOf("Elige una fotografía para previsualizarla.")
+
+    private val wallpaperPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            contentResolver.openInputStream(uri)?.use { stream ->
+                selectedWallpaper = BitmapFactory.decodeStream(stream)
+            }
+            wallpaperMessage = if (selectedWallpaper != null) {
+                "Fotografía cargada. La transferencia al reloj aún requiere validar su protocolo."
+            } else "No se pudo abrir esta imagen. Prueba con otra fotografía."
+        } catch (e: Exception) {
+            selectedWallpaper = null
+            wallpaperMessage = "No se pudo cargar la fotografía: ${e.localizedMessage ?: "error desconocido"}"
+        }
+    }
 
     private val adapter: BluetoothAdapter? by lazy {
         (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter
@@ -372,6 +394,16 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             HeaderSection()
+                            WallpaperSection(
+                                bitmap = selectedWallpaper,
+                                message = wallpaperMessage,
+                                onChoose = { wallpaperPicker.launch("image/*") },
+                                onClear = {
+                                    selectedWallpaper = null
+                                    wallpaperMessage = "Elige una fotografía para previsualizarla."
+                                }
+                            )
+                            FeatureSections(connected = isConnected)
                             ConnectionStatusCard(
                                 connected = isConnected,
                                 scanning = isScanning,
@@ -640,6 +672,112 @@ private fun SafetyNote() {
                 fontSize = 11.sp,
                 lineHeight = 16.sp
             )
+        }
+    }
+}
+
+
+@androidx.compose.runtime.Composable
+private fun WallpaperSection(
+    bitmap: Bitmap?,
+    message: String,
+    onChoose: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeading("Personalizar fondo", "Galería")
+            Text("Selecciona una foto de tu teléfono y revisa la vista previa.", color = Muted, fontSize = 12.sp)
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Vista previa del fondo seleccionado",
+                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                )
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().height(110.dp)
+                        .background(PanelSoft, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("⌚  Vista previa del fondo", color = Muted, fontSize = 13.sp)
+                }
+            }
+            Text(message, color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onChoose,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Navy)
+                ) { Text("ELEGIR FOTO", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+                if (bitmap != null) {
+                    OutlinedButton(onClick = onClear, shape = RoundedCornerShape(12.dp)) {
+                        Text("QUITAR", fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun FeatureSections(connected: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeading("Control del reloj", if (connected) "Conectado" else "Requiere conexión")
+        FeatureCard(
+            title = "Notificaciones y llamadas",
+            detail = "Preparado para integrar avisos de WhatsApp, mensajes y llamadas cuando se valide el servicio compatible.",
+            status = "POR VALIDAR"
+        )
+        FeatureCard(
+            title = "Alarmas, hora y sincronización",
+            detail = "La app podrá mostrar controles cuando identifiquemos los comandos admitidos por el Watch1.",
+            status = "POR VALIDAR"
+        )
+        FeatureCard(
+            title = "Música, clima y encontrar teléfono",
+            detail = "Funciones sujetas a compatibilidad del firmware y al protocolo Bluetooth del reloj.",
+            status = "POR VALIDAR"
+        )
+        SectionHeading("Herramientas", "Diagnóstico")
+        FeatureCard(
+            title = "Batería y datos del dispositivo",
+            detail = "Lectura de características GATT estándar disponibles. El explorador actual muestra los servicios detectados.",
+            status = if (connected) "EXPLORACIÓN DISPONIBLE" else "ESPERANDO RELOJ"
+        )
+        FeatureCard(
+            title = "Carátulas y widgets",
+            detail = "Diseños y elementos visuales personalizados; la aplicación verificará primero qué formatos acepta el reloj.",
+            status = "POR VALIDAR"
+        )
+        FeatureCard(
+            title = "Firmware y copias de seguridad",
+            detail = "No se enviarán actualizaciones ni escrituras propietarias sin documentación y validación del fabricante.",
+            status = "BLOQUEADO POR SEGURIDAD"
+        )
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun FeatureCard(title: String, detail: String, status: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Color(0xFF263B52))
+    ) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, modifier = Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(status, color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(detail, color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
