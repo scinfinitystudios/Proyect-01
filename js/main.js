@@ -26,7 +26,6 @@ function startGame() {
   const moveKnob = document.querySelector("#move-knob");
   const lookZone = document.querySelector("#look-zone");
   const lookKnob = document.querySelector("#look-knob");
-  const jumpButton = document.querySelector("#jump-button");
   const fireButton = document.querySelector("#fire-button");
 
   if (!canvas || !loading || !qualitySelect || !fpsSelect || !batteryToggle || !debugToggle) {
@@ -53,9 +52,6 @@ function startGame() {
   const lookInput = { x: 0, y: 0 };
   let yaw = 0;
   let pitch = 0;
-  let verticalVelocity = 0;
-  let grounded = true;
-  let jumpQueued = false;
   let visible = !document.hidden;
   let running = false;
   const fixedStep = CONFIG.performance.fixedStep;
@@ -97,19 +93,66 @@ function startGame() {
 
   bindStick(moveZone, moveKnob, moveInput);
   bindStick(lookZone, lookKnob, lookInput);
-  jumpButton?.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    jumpQueued = true;
-  });
-  fireButton?.addEventListener("click", () => {
-    const message = document.querySelector("#game-message");
-    if (message) {
-      message.textContent = "El sistema de disparo estará disponible en la siguiente fase.";
-      clearTimeout(fireButton._messageTimer);
-      fireButton._messageTimer = setTimeout(() => {
-        message.textContent = "FPS Mobile — escenario de prueba.";
-      }, 1800);
+  const raycaster = new THREE.Raycaster();
+  const screenCenter = new THREE.Vector2(0, 0);
+  const targets = [];
+  let score = 0;
+  let lastShotAt = 0;
+  let shotFlashTimer = 0;
+
+  // Blancos de práctica colocados a lo largo del camino.
+  const targetBodyMaterial = new THREE.MeshLambertMaterial({ color: 0xb83c32 });
+  const targetHeadMaterial = new THREE.MeshLambertMaterial({ color: 0xe1b18a });
+  const targetDarkMaterial = new THREE.MeshLambertMaterial({ color: 0x292d31 });
+  for (const [x, z] of [[-2.4, 5], [2.2, -2], [0, -9], [-2.8, -16], [2.8, -22]]) {
+    const target = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 1.15, 8), targetBodyMaterial);
+    body.position.y = 0.95;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 8, 6), targetHeadMaterial);
+    head.position.y = 1.72;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.55, 0.16, 8), targetDarkMaterial);
+    base.position.y = 0.08;
+    target.add(body, head, base);
+    target.position.set(x, 0, z);
+    target.userData.isPracticeTarget = true;
+    scene.add(target);
+    targets.push(target);
+  }
+
+  function shoot() {
+    const now = performance.now();
+    if (now - lastShotAt < 260) return;
+    lastShotAt = now;
+    raycaster.setFromCamera(screenCenter, camera);
+    const hit = raycaster.intersectObjects(targets, true)[0];
+    const end = hit ? hit.point : raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(28));
+    const tracerGeometry = new THREE.BufferGeometry().setFromPoints([camera.position.clone(), end]);
+    const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xffe39a, transparent: true, opacity: 0.95 });
+    const tracer = new THREE.Line(tracerGeometry, tracerMaterial);
+    scene.add(tracer);
+    clearTimeout(shotFlashTimer);
+    shotFlashTimer = setTimeout(() => {
+      scene.remove(tracer);
+      tracerGeometry.dispose();
+      tracerMaterial.dispose();
+    }, 75);
+
+    if (hit) {
+      let target = hit.object;
+      while (target && !target.userData.isPracticeTarget) target = target.parent;
+      if (target) {
+        scene.remove(target);
+        const index = targets.indexOf(target);
+        if (index !== -1) targets.splice(index, 1);
+        score++;
+        const message = document.querySelector("#game-message");
+        if (message) message.textContent = "¡Impacto! Puntos: " + score + " · Blancos restantes: " + targets.length;
+      }
     }
+  }
+  fireButton?.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    shoot();
   });
 
   function updateSimulation(step) {
@@ -130,18 +173,6 @@ function startGame() {
       camera.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
     }
 
-    if (jumpQueued && grounded) {
-      verticalVelocity = 5.2;
-      grounded = false;
-    }
-    jumpQueued = false;
-    verticalVelocity -= 14 * step;
-    camera.position.y += verticalVelocity * step;
-    if (camera.position.y <= 1.65) {
-      camera.position.y = 1.65;
-      verticalVelocity = 0;
-      grounded = true;
-    }
   }
 
   function renderFrame() {
