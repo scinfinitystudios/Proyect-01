@@ -80,5 +80,12 @@ Todas las fases futuras deben cumplir estas reglas y actualizar esta sección al
 5. Activar el panel de diagnóstico y comparar métricas durante al menos un minuto.
 6. Repetir la prueba después de varios minutos para observar calentamiento y estabilidad.
 
+## Cierre de la fase 1
+- Base web modular creada en la rama `fps-mobile-performance`.
+- Incluye detección WebGL2, renderizador sin antialias, pixel ratio limitado, calibración inicial heurística, control de calidad, límite de 30/60 FPS, ahorro de batería, pausa al ocultar la pestaña, panel de diagnóstico y caché del shell.
+- La resolución adaptativa usa una ventana de muestras en búfer tipado e histéresis para evitar ajustes bruscos.
+- No se añadieron todavía armas, enemigos, colisiones ni mapa; pertenecen a fases posteriores.
+- No se han ejecutado pruebas reales en el teléfono ni mediciones automatizadas en un navegador desde este entorno.
+
 ## Registro de mediciones
-Todavía no hay mediciones en un teléfono real. No se inventarán resultados: se registrarán después de las pruebas del dispositivo.
+Sin mediciones reales todavía. La calibración inicial es orientativa: el escenario de prueba es pequeño y no predice el rendimiento final de un mapa con enemigos y efectos. Los valores definitivos se registrarán después de probar el dispositivo durante al menos varios minutos.
