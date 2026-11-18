@@ -12,7 +12,9 @@ export class QualityManager {
     this.scale = PRESETS.medium.scale;
     this.targetFps = CONFIG.performance.targetFps;
     this.batterySaver = false;
-    this.frameSamples = [];
+    this.frameSamples = new Float32Array(120);
+    this.sampleCursor = 0;
+    this.sampleCount = 0;
     this.lastCheck = 0;
     this.overBudgetSince = 0;
     this.headroomSince = 0;
@@ -84,11 +86,14 @@ export class QualityManager {
 
   onFrame(frameMs, now) {
     if (!CONFIG.performance.dynamicResolution || this.mode !== "auto" || this.batterySaver) return;
-    if (now - this.lastCheck < CONFIG.performance.resolutionCheckIntervalMs) return;
+    this.frameSamples[this.sampleCursor] = frameMs;
+    this.sampleCursor = (this.sampleCursor + 1) % this.frameSamples.length;
+    this.sampleCount = Math.min(this.sampleCount + 1, this.frameSamples.length);
+    if (now - this.lastCheck < CONFIG.performance.resolutionCheckIntervalMs || this.sampleCount === 0) return;
     this.lastCheck = now;
-    this.frameSamples.push(frameMs);
-    if (this.frameSamples.length > 90) this.frameSamples.shift();
-    const average = this.frameSamples.reduce((sum, value) => sum + value, 0) / this.frameSamples.length;
+    let total = 0;
+    for (let i = 0; i < this.sampleCount; i++) total += this.frameSamples[i];
+    const average = total / this.sampleCount;
 
     if (average > CONFIG.performance.lowerThresholdMs) {
       this.headroomSince = 0;
