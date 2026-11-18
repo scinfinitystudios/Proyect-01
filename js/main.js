@@ -44,6 +44,35 @@ function startGame() {
   const { scene, camera } = createInitialScene(THREE);
   const quality = new QualityManager(renderer, camera);
 
+  // Personaje visible: el jugador se mueve en tercera persona.
+  const player = new THREE.Group();
+  const skin = new THREE.MeshLambertMaterial({ color: 0xd7a47b });
+  const clothes = new THREE.MeshLambertMaterial({ color: 0x263f67 });
+  const pants = new THREE.MeshLambertMaterial({ color: 0x30343b });
+  const boots = new THREE.MeshLambertMaterial({ color: 0x171b20 });
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.9, 0.42), clothes);
+  torso.position.y = 1.25;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 10), skin);
+  head.position.y = 1.92;
+  const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.78, 0.22), clothes);
+  leftArm.position.set(-0.49, 1.27, 0);
+  const rightArm = leftArm.clone();
+  rightArm.position.x = 0.49;
+  const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.72, 0.28), pants);
+  leftLeg.position.set(-0.19, 0.39, 0);
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.19;
+  const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.16, 0.4), boots);
+  leftBoot.position.set(-0.19, 0.08, -0.05);
+  const rightBoot = leftBoot.clone();
+  rightBoot.position.x = 0.19;
+  player.add(torso, head, leftArm, rightArm, leftLeg, rightLeg, leftBoot, rightBoot);
+  player.position.set(0, 0, 15);
+  scene.add(player);
+  camera.position.set(0, 3.1, 20.5);
+  camera.lookAt(0, 1.2, 15);
+  let walkPhase = 0;
+
   let rafId = 0;
   let previousTime = 0;
   let accumulator = 0;
@@ -169,10 +198,32 @@ function startGame() {
       const speed = 5.2;
       const f = forward / Math.max(1, length);
       const s = strafe / Math.max(1, length);
-      camera.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
-      camera.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
+      player.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
+      player.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
+      walkPhase += step * 10;
+      leftLeg.rotation.x = Math.sin(walkPhase) * 0.48;
+      rightLeg.rotation.x = -Math.sin(walkPhase) * 0.48;
+      leftArm.rotation.x = -Math.sin(walkPhase) * 0.28;
+      rightArm.rotation.x = Math.sin(walkPhase) * 0.28;
+    } else {
+      leftLeg.rotation.x *= 0.75;
+      rightLeg.rotation.x *= 0.75;
+      leftArm.rotation.x *= 0.75;
+      rightArm.rotation.x *= 0.75;
     }
 
+    player.rotation.y = yaw;
+    const cameraDistance = 5.5;
+    camera.position.set(
+      player.position.x + Math.sin(yaw) * cameraDistance,
+      player.position.y + 3.0 + pitch * 2,
+      player.position.z + Math.cos(yaw) * cameraDistance
+    );
+    camera.lookAt(
+      player.position.x,
+      player.position.y + 1.25 + pitch * 1.8,
+      player.position.z
+    );
   }
 
   function renderFrame() {
