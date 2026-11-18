@@ -7,7 +7,6 @@ import android.util.Log;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -62,16 +61,6 @@ public final class MainActivity extends Activity {
                 }
             }
 
-            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                super.onReceivedError(view, request, error);
-                if (request.isForMainFrame()) {
-                    Log.e(TAG, "Error cargando la pantalla principal: " + error.getDescription()
-                        + " (" + error.getErrorCode() + ")");
-                } else {
-                    Log.e(TAG, "Error cargando recurso: " + request.getUrl()
-                        + " — " + error.getDescription());
-                }
-            }
         });
 
         WebSettings settings = webView.getSettings();
