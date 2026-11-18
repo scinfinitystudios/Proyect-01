@@ -20,7 +20,7 @@ public final class MainActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
-        assetLoader = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
+        assetLoader = new WebViewAssetLoader.Builder().setDomain("fpsmobile.local").addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
         webView = new WebView(this);
         webView.setBackgroundColor(0xFF101820);
         webView.setWebChromeClient(new WebChromeClient());
@@ -38,7 +38,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         setContentView(webView);
-        if (state == null) webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html");
+        if (state == null) webView.loadUrl("https://fpsmobile.local/assets/www/index.html");
         else webView.restoreState(state);
     }
 
