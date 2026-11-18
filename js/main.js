@@ -98,6 +98,7 @@ batteryToggle.addEventListener("change", () => {
   quality.setBatterySaver(batteryToggle.checked);
   fpsSelect.value = String(quality.targetFps);
   qualitySelect.value = batteryToggle.checked ? "low" : "auto";
+  qualitySelect.disabled = batteryToggle.checked;
 });
 debugToggle.addEventListener("click", () => {
   debugToggle.setAttribute("aria-pressed", String(debugPanel.toggle()));
