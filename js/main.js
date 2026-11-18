@@ -187,10 +187,6 @@ function startGame() {
   function updateSimulation(step) {
     yaw -= lookInput.x * 2.2 * step;
     pitch = Math.max(-1.15, Math.min(1.15, pitch - lookInput.y * 1.8 * step));
-    camera.rotation.order = "YXZ";
-    camera.rotation.y = yaw;
-    camera.rotation.x = pitch;
-
     const forward = -moveInput.y;
     const strafe = moveInput.x;
     const length = Math.hypot(forward, strafe);
@@ -214,15 +210,19 @@ function startGame() {
 
     player.rotation.y = yaw;
     const cameraDistance = 5.5;
+    // La cámara queda detrás del jugador, pero apunta hacia delante del camino.
+    // Así el personaje permanece visible y no tapa el punto de mira.
+    const forwardX = Math.sin(yaw);
+    const forwardZ = -Math.cos(yaw);
     camera.position.set(
-      player.position.x + Math.sin(yaw) * cameraDistance,
-      player.position.y + 3.0 + pitch * 2,
-      player.position.z + Math.cos(yaw) * cameraDistance
+      player.position.x - forwardX * cameraDistance,
+      player.position.y + 3.0 + pitch * 1.2,
+      player.position.z - forwardZ * cameraDistance
     );
     camera.lookAt(
-      player.position.x,
-      player.position.y + 1.25 + pitch * 1.8,
-      player.position.z
+      player.position.x + forwardX * 4.0,
+      player.position.y + 1.35 + pitch * 1.8,
+      player.position.z + forwardZ * 4.0
     );
   }
 
