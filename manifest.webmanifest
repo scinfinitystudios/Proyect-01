@@ -1,0 +1,9 @@
+{
+  "name": "FPS Mobile",
+  "short_name": "FPS Mobile",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "orientation": "landscape"
+}
