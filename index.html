@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <meta name="description" content="FPS 3D para navegador móvil, optimizado para rendimiento.">
+  <title>FPS Mobile — Prototipo</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="manifest" href="./manifest.webmanifest">
+</head>
+<body>
+  <main id="game-root">
+    <canvas id="game-canvas" aria-label="Vista 3D del juego"></canvas>
+    <section id="loading" class="overlay" aria-live="polite">
+      <div class="loader"></div>
+      <h1>Preparando el motor</h1>
+      <p id="loading-status">Comprobando compatibilidad y rendimiento…</p>
+    </section>
+    <section id="compatibility" class="overlay hidden" role="alert">
+      <h1>WebGL2 no disponible</h1>
+      <p>Este navegador o dispositivo no permite ejecutar el motor gráfico requerido.</p>
+    </section>
+    <section id="settings" class="hud">
+      <label>Calidad
+        <select id="quality-select">
+          <option value="auto">Automática</option>
+          <option value="low">Baja</option>
+          <option value="medium">Media</option>
+          <option value="high">Alta</option>
+        </select>
+      </label>
+      <label>FPS
+        <select id="fps-select">
+          <option value="60">60 FPS</option>
+          <option value="30">30 FPS</option>
+        </select>
+      </label>
+      <label class="toggle"><input id="battery-toggle" type="checkbox"> Ahorro</label>
+      <button id="debug-toggle" type="button" aria-pressed="false">Diagnóstico</button>
+    </section>
+    <aside id="debug-panel" class="debug hidden" aria-live="off"></aside>
+    <p id="game-message">Base técnica lista. El contenido jugable se incorporará en la siguiente fase.</p>
+  </main>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
