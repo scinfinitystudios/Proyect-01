@@ -115,7 +115,7 @@ function startGame() {
     else stopLoop();
   });
 
-  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http") && location.hostname !== "fpsmobile.local") {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(error => {
         console.warn("[Carga] No se pudo registrar el Service Worker:", error);
