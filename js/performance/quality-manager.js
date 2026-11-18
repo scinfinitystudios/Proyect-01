@@ -24,7 +24,7 @@ export class QualityManager {
 
   get pixelRatio() {
     const deviceRatio = window.devicePixelRatio || 1;
-    return Math.min(deviceRatio * this.scale, CONFIG.render.maxPixelRatio);
+    return Math.min(deviceRatio, CONFIG.render.maxPixelRatio) * this.scale;
   }
 
   apply() {
