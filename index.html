@@ -19,7 +19,7 @@
         const heading = loading.querySelector("h1");
         const status = document.getElementById("loading-status");
         if (heading) heading.textContent = "No se pudo iniciar FPS Mobile";
-        if (status) status.textContent = message || "Error desconocido al cargar el motor. Cierra y vuelve a abrir la aplicación.";
+        if (status) status.textContent = message || "Error desconocido al cargar el motor.";
         loading.classList.add("startup-error");
         loading.classList.remove("hidden");
       };
@@ -29,15 +29,19 @@
         clearTimeout(window.__FPS_BOOT_TIMEOUT__);
       };
       window.addEventListener("error", (event) => {
-        const detail = event.message || "No se pudo cargar un archivo JavaScript del motor.";
-        showError(detail);
-      });
+        if (event.target && event.target !== window) {
+          const failedUrl = event.target.src || event.target.href || "recurso desconocido";
+          showError("No se pudo cargar: " + failedUrl);
+          return;
+        }
+        showError(event.message || "Error JavaScript al iniciar el motor.");
+      }, true);
       window.addEventListener("unhandledrejection", (event) => {
         const reason = event.reason;
-        showError(reason && reason.message ? reason.message : "Falló una operación interna del motor.");
+        showError(reason && reason.message ? reason.message : String(reason || "Falló una operación interna del motor."));
       });
       window.__FPS_BOOT_TIMEOUT__ = setTimeout(() => {
-        if (!booted) showError("El motor tardó demasiado en iniciar. Comprueba la compatibilidad gráfica del teléfono y vuelve a abrir la aplicación.");
+        if (!booted) showError("El módulo del juego no respondió. Revisa la carga de JavaScript y Three.js.");
       }, 20000);
     })();
   </script>
@@ -75,6 +79,6 @@
     <aside id="debug-panel" class="debug hidden" aria-live="off"></aside>
     <p id="game-message">FPS Mobile — escenario de prueba.</p>
   </main>
-  <script type="module" src="./js/main.js"></script>
+  <script type="module" src="./js/main.js" onerror="window.__FPS_SHOW_ERROR__ && window.__FPS_SHOW_ERROR__('No se pudo cargar js/main.js. Comprueba los archivos incluidos en la APK.')"></script>
 </body>
 </html>
