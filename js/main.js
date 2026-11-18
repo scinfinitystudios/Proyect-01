@@ -42,11 +42,10 @@ function renderFrame() {
 }
 
 async function initialize() {
-  loadingStatus.textContent = "Calibrando el rendimiento del dispositivo…";
-  const result = await quality.runStartupBenchmark(renderFrame);
+  // Entrar al escenario inmediatamente; el ajuste dinámico de resolución
+  // adapta el rendimiento mientras se juega, sin bloquear la pantalla inicial.
   qualitySelect.value = "auto";
-  loadingStatus.textContent = "Calibración: " + result.level + " (" + result.averageFrameMs.toFixed(1) + " ms/fotograma)";
-  await new Promise(resolve => setTimeout(resolve, 250));
+  renderFrame();
   loading.classList.add("hidden");
   startLoop();
 }
