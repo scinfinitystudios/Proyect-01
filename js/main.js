@@ -22,6 +22,12 @@ function startGame() {
   const batteryToggle = document.querySelector("#battery-toggle");
   const debugToggle = document.querySelector("#debug-toggle");
   const debugPanel = new DebugPanel(document.querySelector("#debug-panel"));
+  const moveZone = document.querySelector("#move-zone");
+  const moveKnob = document.querySelector("#move-knob");
+  const lookZone = document.querySelector("#look-zone");
+  const lookKnob = document.querySelector("#look-knob");
+  const jumpButton = document.querySelector("#jump-button");
+  const fireButton = document.querySelector("#fire-button");
 
   if (!canvas || !loading || !qualitySelect || !fpsSelect || !batteryToggle || !debugToggle) {
     throw new Error("Faltan elementos necesarios en index.html.");
@@ -43,12 +49,99 @@ function startGame() {
   let previousTime = 0;
   let accumulator = 0;
   let lastRenderTime = 0;
+  const moveInput = { x: 0, y: 0 };
+  const lookInput = { x: 0, y: 0 };
+  let yaw = 0;
+  let pitch = 0;
+  let verticalVelocity = 0;
+  let grounded = true;
+  let jumpQueued = false;
   let visible = !document.hidden;
   let running = false;
   const fixedStep = CONFIG.performance.fixedStep;
 
+  function bindStick(zone, knob, input) {
+    if (!zone || !knob) return;
+    let pointerId = null;
+    const radius = 43;
+    const update = (event) => {
+      const rect = zone.getBoundingClientRect();
+      let dx = event.clientX - (rect.left + rect.width / 2);
+      let dy = event.clientY - (rect.top + rect.height / 2);
+      const length = Math.hypot(dx, dy);
+      if (length > radius) { dx = dx / length * radius; dy = dy / length * radius; }
+      input.x = dx / radius;
+      input.y = dy / radius;
+      knob.style.transform = "translate(" + dx + "px," + dy + "px)";
+    };
+    zone.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      if (pointerId !== null) return;
+      pointerId = event.pointerId;
+      zone.setPointerCapture(pointerId);
+      update(event);
+    });
+    zone.addEventListener("pointermove", (event) => {
+      if (event.pointerId === pointerId) { event.preventDefault(); update(event); }
+    });
+    const release = (event) => {
+      if (event.pointerId !== pointerId) return;
+      pointerId = null;
+      input.x = 0; input.y = 0;
+      knob.style.transform = "translate(0,0)";
+    };
+    zone.addEventListener("pointerup", release);
+    zone.addEventListener("pointercancel", release);
+    zone.addEventListener("lostpointercapture", release);
+  }
+
+  bindStick(moveZone, moveKnob, moveInput);
+  bindStick(lookZone, lookKnob, lookInput);
+  jumpButton?.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    jumpQueued = true;
+  });
+  fireButton?.addEventListener("click", () => {
+    const message = document.querySelector("#game-message");
+    if (message) {
+      message.textContent = "El sistema de disparo estará disponible en la siguiente fase.";
+      clearTimeout(fireButton._messageTimer);
+      fireButton._messageTimer = setTimeout(() => {
+        message.textContent = "FPS Mobile — escenario de prueba.";
+      }, 1800);
+    }
+  });
+
   function updateSimulation(step) {
-    void step;
+    yaw -= lookInput.x * 2.2 * step;
+    pitch = Math.max(-1.15, Math.min(1.15, pitch - lookInput.y * 1.8 * step));
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = yaw;
+    camera.rotation.x = pitch;
+
+    const forward = -moveInput.y;
+    const strafe = moveInput.x;
+    const length = Math.hypot(forward, strafe);
+    if (length > 0.08) {
+      const speed = 5.2;
+      const f = forward / Math.max(1, length);
+      const s = strafe / Math.max(1, length);
+      camera.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
+      camera.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
+    }
+
+    if (jumpQueued && grounded) {
+      verticalVelocity = 5.2;
+      grounded = false;
+    }
+    jumpQueued = false;
+    verticalVelocity -= 14 * step;
+    camera.position.y += verticalVelocity * step;
+    if (camera.position.y <= 1.65) {
+      camera.position.y = 1.65;
+      verticalVelocity = 0;
+      grounded = true;
+    }
   }
 
   function renderFrame() {
