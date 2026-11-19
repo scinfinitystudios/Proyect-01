@@ -2,15 +2,15 @@
 export const ISLAND = Object.freeze({
   size: 2500,
   halfSize: 1250,
-  segments: 192,
+  segments: 256,
   seaLevel: -2,
   cityRadius: 260
 });
 
 const RIVERS = [
   { width: 15, points: [[-850,-1030],[-700,-930],[-510,-875],[-280,-850],[-40,-790],[180,-590],[390,-300],[620,20],[820,360],[1030,690]] },
-  { width: 9, points: [[900,-650],[790,-470],[700,-260],[620,20]] },
-  { width: 8, points: [[-760,900],[-570,700],[-390,480],[-170,250],[40,80]] }
+  { width: 12, points: [[900,-650],[790,-470],[700,-260],[620,20]] },
+  { width: 11, points: [[-760,900],[-570,700],[-390,480],[-170,250],[40,80]] }
 ];
 const LAKES = [
   { x: 0, z: -850, radius: 112, depth: 5, name: "IslaLibre_Lago_Cristal" },
