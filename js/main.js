@@ -24,8 +24,7 @@ function startGame() {
   const debugPanel = new DebugPanel(document.querySelector("#debug-panel"));
   const moveZone = document.querySelector("#move-zone");
   const moveKnob = document.querySelector("#move-knob");
-  const lookZone = document.querySelector("#look-zone");
-  const lookKnob = document.querySelector("#look-knob");
+  const lookSwipeZone = document.querySelector("#look-swipe-zone");
   const fireButton = document.querySelector("#fire-button");
 
   if (!canvas || !loading || !qualitySelect || !fpsSelect || !batteryToggle || !debugToggle) {
@@ -78,7 +77,7 @@ function startGame() {
   let accumulator = 0;
   let lastRenderTime = 0;
   const moveInput = { x: 0, y: 0 };
-  const lookInput = { x: 0, y: 0 };
+  const lookDelta = { x: 0, y: 0 };
   let yaw = 0;
   let pitch = 0;
   let visible = !document.hidden;
@@ -121,7 +120,40 @@ function startGame() {
   }
 
   bindStick(moveZone, moveKnob, moveInput);
-  bindStick(lookZone, lookKnob, lookInput);
+  // La mitad derecha de la pantalla controla la cámara mediante deslizamiento.
+  // El botón de disparo es independiente y no envía gestos a esta zona.
+  if (lookSwipeZone) {
+    let lookPointerId = null;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    const sensitivity = 0.006;
+    lookSwipeZone.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      if (lookPointerId !== null) return;
+      lookPointerId = event.pointerId;
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      lookSwipeZone.setPointerCapture(lookPointerId);
+    });
+    lookSwipeZone.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== lookPointerId) return;
+      event.preventDefault();
+      const dx = event.clientX - lastPointerX;
+      const dy = event.clientY - lastPointerY;
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      lookDelta.x += dx * sensitivity;
+      lookDelta.y += dy * sensitivity;
+    });
+    const endLookGesture = (event) => {
+      if (event.pointerId !== lookPointerId) return;
+      lookPointerId = null;
+    };
+    lookSwipeZone.addEventListener("pointerup", endLookGesture);
+    lookSwipeZone.addEventListener("pointercancel", endLookGesture);
+    lookSwipeZone.addEventListener("lostpointercapture", endLookGesture);
+  }
   const raycaster = new THREE.Raycaster();
   const screenCenter = new THREE.Vector2(0, 0);
   const targets = [];
@@ -185,8 +217,10 @@ function startGame() {
   });
 
   function updateSimulation(step) {
-    yaw -= lookInput.x * 2.2 * step;
-    pitch = Math.max(-1.15, Math.min(1.15, pitch - lookInput.y * 1.8 * step));
+    yaw += lookDelta.x;
+    pitch = Math.max(-1.15, Math.min(1.15, pitch - lookDelta.y));
+    lookDelta.x = 0;
+    lookDelta.y = 0;
     const forward = -moveInput.y;
     const strafe = moveInput.x;
     const length = Math.hypot(forward, strafe);
