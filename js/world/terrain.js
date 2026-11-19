@@ -70,6 +70,127 @@ function terrainColor(height, x, z) {
   return [0.34, 0.58, 0.32];
 }
 
+
+function createWaterRibbon(THREE, scene, points, width, name, material) {
+  const curve = new THREE.CatmullRomCurve3(points.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
+  const divisions = Math.max(48, points.length * 24);
+  const positions = [];
+  const indices = [];
+  for (let i = 0; i <= divisions; i++) {
+    const t = i / divisions;
+    const point = curve.getPoint(t);
+    const tangent = curve.getTangent(t);
+    const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+    const taper = Math.min(1, 0.25 + t * 5, 0.25 + (1 - t) * 5);
+    const halfWidth = width * 0.5 * taper;
+    positions.push(
+      point.x - side.x * halfWidth, point.y, point.z - side.z * halfWidth,
+      point.x + side.x * halfWidth, point.y, point.z + side.z * halfWidth
+    );
+    if (i < divisions) {
+      const a = i * 2;
+      indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = name;
+  mesh.frustumCulled = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+function createWaterfall(THREE, scene, x, z, topY, bottomY, width, name) {
+  const height = Math.max(2, topY - bottomY);
+  const geometry = new THREE.PlaneGeometry(width, height, 1, 8);
+  const material = new THREE.MeshLambertMaterial({
+    color: 0x80d9ed,
+    transparent: true,
+    opacity: 0.82,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const waterfall = new THREE.Mesh(geometry, material);
+  waterfall.name = name;
+  waterfall.position.set(x, bottomY + height / 2, z);
+  scene.add(waterfall);
+
+  // Espuma ligera en la base para hacer legible la caída desde lejos.
+  const foam = new THREE.Mesh(
+    new THREE.CircleGeometry(width * 0.72, 16),
+    new THREE.MeshBasicMaterial({ color: 0xb9f3f7, transparent: true, opacity: 0.48 })
+  );
+  foam.rotation.x = -Math.PI / 2;
+  foam.position.set(x, bottomY + 0.12, z + 1.5);
+  scene.add(foam);
+  return waterfall;
+}
+
+function createIslandWater(THREE, scene, getHeightAt) {
+  const riverMaterial = new THREE.MeshLambertMaterial({
+    color: 0x36a9cc,
+    transparent: true,
+    opacity: 0.88,
+    side: THREE.DoubleSide
+  });
+
+  // Río principal: baja desde las montañas del noroeste, cruza el valle y llega a la costa oriental.
+  const mainRiver = [
+    [-850, getHeightAt(-850, -1030) + 2.2, -1030],
+    [-700, getHeightAt(-700, -930) + 1.8, -930],
+    [-510, getHeightAt(-510, -875) + 1.5, -875],
+    [-280, getHeightAt(-280, -850) + 1.2, -850],
+    [-40, getHeightAt(-40, -790) + 1.0, -790],
+    [180, getHeightAt(180, -590) + 0.9, -590],
+    [390, getHeightAt(390, -300) + 0.8, -300],
+    [620, getHeightAt(620, 20) + 0.7, 20],
+    [820, getHeightAt(820, 360) + 0.6, 360],
+    [1030, getHeightAt(1030, 690) + 0.4, 690]
+  ];
+  createWaterRibbon(THREE, scene, mainRiver, 15, "IslaLibre_Rio_Principal", riverMaterial);
+
+  // Afluente desde el bosque tropical hacia el río principal.
+  const forestRiver = [
+    [900, getHeightAt(900, -650) + 1.1, -650],
+    [790, getHeightAt(790, -470) + 1.0, -470],
+    [700, getHeightAt(700, -260) + 0.9, -260],
+    [620, getHeightAt(620, 20) + 0.8, 20]
+  ];
+  createWaterRibbon(THREE, scene, forestRiver, 9, "IslaLibre_Rio_Bosque", riverMaterial);
+
+  // Afluente del sur, conecta las llanuras cercanas a la base militar con el cauce principal.
+  const southRiver = [
+    [-760, getHeightAt(-760, 900) + 1.0, 900],
+    [-570, getHeightAt(-570, 700) + 0.9, 700],
+    [-390, getHeightAt(-390, 480) + 0.8, 480],
+    [-170, getHeightAt(-170, 250) + 0.7, 250],
+    [40, getHeightAt(40, 80) + 0.7, 80]
+  ];
+  createWaterRibbon(THREE, scene, southRiver, 8, "IslaLibre_Rio_Sur", riverMaterial);
+
+  // Lagos adicionales en depresiones suaves.
+  const lakeMaterial = new THREE.MeshLambertMaterial({ color: 0x3b9fc1, transparent: true, opacity: 0.9 });
+  const lakes = [
+    { x: 0, z: -850, radius: 112, name: "IslaLibre_Lago_Cristal" },
+    { x: 690, z: 690, radius: 58, name: "IslaLibre_Laguna_Sur" },
+    { x: -880, z: -120, radius: 46, name: "IslaLibre_Laguna_Oeste" }
+  ];
+  for (const item of lakes) {
+    const water = new THREE.Mesh(new THREE.CircleGeometry(item.radius, 40), lakeMaterial);
+    water.name = item.name;
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(item.x, getHeightAt(item.x, item.z) + 1.0, item.z);
+    scene.add(water);
+  }
+
+  // Caídas visibles en la cordillera y el bosque.
+  createWaterfall(THREE, scene, -620, -890, getHeightAt(-620, -890) + 24, getHeightAt(-620, -890) + 2, 20, "IslaLibre_Cascada_Norte");
+  createWaterfall(THREE, scene, 820, -410, getHeightAt(820, -410) + 16, getHeightAt(820, -410) + 1.5, 13, "IslaLibre_Cascada_Bosque");
+}
+
 export function createIslandTerrain(THREE, scene) {
   const segments = ISLAND.segments;
   const size = ISLAND.size;
@@ -127,14 +248,7 @@ export function createIslandTerrain(THREE, scene) {
   ocean.position.y = ISLAND.seaLevel;
   scene.add(ocean);
 
-  // Lago principal en el Valle del Lago: la depresión del terreno forma su cuenca.
-  const lakeGeometry = new THREE.CircleGeometry(112, 48);
-  const lakeMaterial = new THREE.MeshLambertMaterial({ color: 0x3b9fc1 });
-  const lake = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  lake.name = "IslaLibre_Lago_Cristal";
-  lake.rotation.x = -Math.PI / 2;
-  lake.position.set(0, getIslandHeight(0, -850) + 1.2, -850);
-  scene.add(lake);
+  createIslandWater(THREE, scene, getIslandHeight);
 
-  return { terrain, ocean, lake, getHeightAt: getIslandHeight };
+  return { terrain, ocean, getHeightAt: getIslandHeight };
 }
