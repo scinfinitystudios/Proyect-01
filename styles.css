@@ -6,7 +6,7 @@
 .stick-zone>span{position:absolute;bottom:-19px;font-size:10px;letter-spacing:2px;color:#d8e6e8;text-shadow:0 2px 4px #000}
 .stick-base{width:116px;height:116px;border:2px solid #c9e8e877;border-radius:50%;background:#142a35a8;box-shadow:inset 0 0 22px #0008,0 3px 14px #0008;display:grid;place-items:center}
 .stick-knob{width:48px;height:48px;border-radius:50%;border:2px solid #d9fff0aa;background:linear-gradient(145deg,#73d8c5,#246c72);box-shadow:0 3px 12px #0009;transform:translate(0,0)}
-.look-swipe-zone{position:absolute;top:76px;right:0;bottom:0;width:58%;pointer-events:auto;touch-action:none;cursor:grab}
+.look-swipe-zone{position:absolute;top:76px;right:0;bottom:0;width:54%;pointer-events:auto;touch-action:none;cursor:grab}
 .action-buttons{position:absolute;z-index:2;right:max(18px,env(safe-area-inset-right));bottom:max(174px,calc(env(safe-area-inset-bottom) + 174px));display:flex;gap:12px;align-items:flex-end;pointer-events:auto}
 .action-buttons button{width:64px;height:64px;border-radius:50%;border:2px solid #ffffff88;background:#8a392dcc;color:white;font-weight:800;font-size:11px;letter-spacing:.5px;box-shadow:0 3px 12px #0009;touch-action:none}
 #jump-button{background:#276b83dd}
