@@ -43,34 +43,84 @@ function startGame() {
   const { scene, camera, getHeightAt } = createInitialScene(THREE);
   const quality = new QualityManager(renderer, camera);
 
-  // Personaje visible: el jugador se mueve en tercera persona.
+  // Personaje articulado: pivotes en hombros y caderas para animaciones naturales.
   const player = new THREE.Group();
   const skin = new THREE.MeshLambertMaterial({ color: 0xd7a47b });
   const clothes = new THREE.MeshLambertMaterial({ color: 0x263f67 });
   const pants = new THREE.MeshLambertMaterial({ color: 0x30343b });
   const boots = new THREE.MeshLambertMaterial({ color: 0x171b20 });
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.9, 0.42), clothes);
-  torso.position.y = 1.25;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 10), skin);
-  head.position.y = 1.92;
-  const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.78, 0.22), clothes);
-  leftArm.position.set(-0.49, 1.27, 0);
-  const rightArm = leftArm.clone();
-  rightArm.position.x = 0.49;
-  const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.72, 0.28), pants);
-  leftLeg.position.set(-0.19, 0.39, 0);
-  const rightLeg = leftLeg.clone();
-  rightLeg.position.x = 0.19;
-  const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.16, 0.4), boots);
-  leftBoot.position.set(-0.19, 0.08, -0.05);
-  const rightBoot = leftBoot.clone();
-  rightBoot.position.x = 0.19;
-  player.add(torso, head, leftArm, rightArm, leftLeg, rightLeg, leftBoot, rightBoot);
+  const hair = new THREE.MeshLambertMaterial({ color: 0x25201d });
+  const accent = new THREE.MeshLambertMaterial({ color: 0x65d6c4 });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.82, 0.4), clothes);
+  torso.position.y = 1.35;
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.16, 0.42), accent);
+  chest.position.set(0, 1.55, -0.015);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.16, 8), skin);
+  neck.position.y = 1.82;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 12), skin);
+  head.position.y = 2.05;
+  head.scale.set(0.9, 1.05, 0.9);
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.255, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.48), hair);
+  hairCap.position.set(0, 2.12, 0.015);
+  const eyeGeometry = new THREE.SphereGeometry(0.027, 6, 6);
+  const eyesMaterial = new THREE.MeshBasicMaterial({ color: 0x18232b });
+  const leftEye = new THREE.Mesh(eyeGeometry, eyesMaterial);
+  leftEye.position.set(-0.085, 2.07, -0.218);
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.085;
+
+  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.5, 0.2), targetDarkMaterialForPlayer());
+  backpack.position.set(0, 1.34, 0.27);
+
+  const leftArmPivot = new THREE.Group();
+  leftArmPivot.position.set(-0.46, 1.68, 0);
+  const armGeometry = new THREE.BoxGeometry(0.2, 0.72, 0.22);
+  const leftArm = new THREE.Mesh(armGeometry, clothes);
+  leftArm.position.y = -0.36;
+  const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), skin);
+  leftHand.position.y = -0.73;
+  leftArmPivot.add(leftArm, leftHand);
+  const rightArmPivot = new THREE.Group();
+  rightArmPivot.position.set(0.46, 1.68, 0);
+  const rightArm = new THREE.Mesh(armGeometry, clothes);
+  rightArm.position.y = -0.36;
+  const rightHand = leftHand.clone();
+  rightHand.position.y = -0.73;
+  rightArmPivot.add(rightArm, rightHand);
+
+  const leftLegPivot = new THREE.Group();
+  leftLegPivot.position.set(-0.19, 0.91, 0);
+  const legGeometry = new THREE.BoxGeometry(0.25, 0.72, 0.28);
+  const leftLeg = new THREE.Mesh(legGeometry, pants);
+  leftLeg.position.y = -0.36;
+  const bootGeometry = new THREE.BoxGeometry(0.28, 0.16, 0.4);
+  const leftBoot = new THREE.Mesh(bootGeometry, boots);
+  leftBoot.position.set(0, -0.72, -0.055);
+  leftLegPivot.add(leftLeg, leftBoot);
+  const rightLegPivot = new THREE.Group();
+  rightLegPivot.position.set(0.19, 0.91, 0);
+  const rightLeg = new THREE.Mesh(legGeometry, pants);
+  rightLeg.position.y = -0.36;
+  const rightBoot = new THREE.Mesh(bootGeometry, boots);
+  rightBoot.position.set(0, -0.72, -0.055);
+  rightLegPivot.add(rightLeg, rightBoot);
+
+  player.add(torso, chest, neck, head, hairCap, leftEye, rightEye, backpack,
+    leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot);
   player.position.set(0, getHeightAt(0, 15), 15);
   scene.add(player);
   camera.position.set(0, 3.1, 20.5);
   camera.lookAt(0, 1.2, 15);
   let walkPhase = 0;
+  let verticalVelocity = 0;
+  let verticalOffset = 0;
+  let grounded = true;
+  const jumpButton = document.querySelector("#jump-button");
+
+  function targetDarkMaterialForPlayer() {
+    return new THREE.MeshLambertMaterial({ color: 0x354b5a });
+  }
 
   let rafId = 0;
   let previousTime = 0;
@@ -211,6 +261,14 @@ function startGame() {
       }
     }
   }
+  jumpButton?.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    if (grounded) { verticalVelocity = 7.2; grounded = false; }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.code === "Space" && grounded) { event.preventDefault(); verticalVelocity = 7.2; grounded = false; }
+  });
+
   fireButton?.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     shoot();
@@ -231,18 +289,32 @@ function startGame() {
       player.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
       player.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
       walkPhase += step * 10;
-      leftLeg.rotation.x = Math.sin(walkPhase) * 0.48;
-      rightLeg.rotation.x = -Math.sin(walkPhase) * 0.48;
-      leftArm.rotation.x = -Math.sin(walkPhase) * 0.28;
-      rightArm.rotation.x = Math.sin(walkPhase) * 0.28;
+      const stride = grounded ? Math.sin(walkPhase) * 0.58 : 0.12;
+      leftLegPivot.rotation.x = stride;
+      rightLegPivot.rotation.x = -stride;
+      leftArmPivot.rotation.x = -stride * 0.62;
+      rightArmPivot.rotation.x = stride * 0.62;
+      torso.position.y = 1.35 + Math.abs(Math.sin(walkPhase * 2)) * 0.025;
     } else {
-      leftLeg.rotation.x *= 0.75;
-      rightLeg.rotation.x *= 0.75;
-      leftArm.rotation.x *= 0.75;
-      rightArm.rotation.x *= 0.75;
+      leftLegPivot.rotation.x *= 0.78;
+      rightLegPivot.rotation.x *= 0.78;
+      leftArmPivot.rotation.x *= 0.78;
+      rightArmPivot.rotation.x *= 0.78;
+      torso.position.y += (1.35 - torso.position.y) * 0.18;
     }
 
-    player.position.y = getHeightAt(player.position.x, player.position.z);
+    const groundHeight = getHeightAt(player.position.x, player.position.z);
+    if (!grounded) {
+      verticalVelocity -= 18 * step;
+      verticalOffset += verticalVelocity * step;
+      if (verticalOffset <= 0) {
+        verticalOffset = 0;
+        verticalVelocity = 0;
+        grounded = true;
+      }
+    }
+    player.position.y = groundHeight + verticalOffset;
+    player.rotation.y = yaw;
     player.rotation.y = yaw;
     const cameraDistance = 5.5;
     // La cámara queda detrás del jugador, pero apunta hacia delante del camino.
