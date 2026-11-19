@@ -56,8 +56,8 @@ export function getIslandHeight(x, z) {
   height = height * (1 - cityBlend) + 0.5 * cityBlend;
 
   // La costa cae suavemente hasta el nivel del mar.
-  height *= coast;
-  return Math.max(-2, height);
+  height = -4 + (height + 4) * coast;
+  return height;
 }
 
 function terrainColor(height, x, z) {
