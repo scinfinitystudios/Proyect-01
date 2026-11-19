@@ -261,7 +261,15 @@ function startGame() {
       }
     }
   }
-  jumpButton?.addEventListener("pointerdown", (event) => {\n    event.preventDefault();\n    if (grounded) { verticalVelocity = 7.2; grounded = false; }\n  });\n  window.addEventListener("keydown", (event) => {\n    if (event.code === "Space" && grounded) { event.preventDefault(); verticalVelocity = 7.2; grounded = false; }\n  });\n\n  fireButton?.addEventListener("pointerdown", (event) => {
+  jumpButton?.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    if (grounded) { verticalVelocity = 7.2; grounded = false; }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.code === "Space" && grounded) { event.preventDefault(); verticalVelocity = 7.2; grounded = false; }
+  });
+
+  fireButton?.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     shoot();
   });
