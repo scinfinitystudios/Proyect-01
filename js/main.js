@@ -41,7 +41,7 @@ function startGame() {
   }
 
   const { THREE, renderer } = setup;
-  const { scene, camera } = createInitialScene(THREE);
+  const { scene, camera, getHeightAt } = createInitialScene(THREE);
   const quality = new QualityManager(renderer, camera);
 
   // Personaje visible: el jugador se mueve en tercera persona.
@@ -67,7 +67,7 @@ function startGame() {
   const rightBoot = leftBoot.clone();
   rightBoot.position.x = 0.19;
   player.add(torso, head, leftArm, rightArm, leftLeg, rightLeg, leftBoot, rightBoot);
-  player.position.set(0, 0, 15);
+  player.position.set(0, getHeightAt(0, 15), 15);
   scene.add(player);
   camera.position.set(0, 3.1, 20.5);
   camera.lookAt(0, 1.2, 15);
@@ -142,7 +142,7 @@ function startGame() {
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.55, 0.16, 8), targetDarkMaterial);
     base.position.y = 0.08;
     target.add(body, head, base);
-    target.position.set(x, 0, z);
+    target.position.set(x, getHeightAt(x, z), z);
     target.userData.isPracticeTarget = true;
     scene.add(target);
     targets.push(target);
@@ -208,6 +208,7 @@ function startGame() {
       rightArm.rotation.x *= 0.75;
     }
 
+    player.position.y = getHeightAt(player.position.x, player.position.z);
     player.rotation.y = yaw;
     const cameraDistance = 5.5;
     // La cámara queda detrás del jugador, pero apunta hacia delante del camino.
