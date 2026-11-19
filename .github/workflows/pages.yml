@@ -1,0 +1,48 @@
+name: Deploy FPS Mobile to GitHub Pages
+
+on:
+  push:
+    branches: [android-apk]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el proyecto
+        uses: actions/checkout@v4
+        with:
+          ref: android-apk
+
+      - name: Preparar sitio web
+        shell: bash
+        run: |
+          mkdir -p _site
+          cp index.html styles.css manifest.webmanifest sw.js _site/
+          cp -R js _site/
+          test -s _site/index.html
+          test -s _site/js/main.js
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir archivos del sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Publicar sitio
+        id: deployment
+        uses: actions/deploy-pages@v4
