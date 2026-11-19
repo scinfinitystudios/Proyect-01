@@ -44,8 +44,8 @@ export function createInitialScene(THREE) {
   sun.position.set(-650, 900, 450);
   scene.add(sun);
 
-  createIslandTerrain(THREE, scene);
-  return { scene, camera };
+  const terrain = createIslandTerrain(THREE, scene);
+  return { scene, camera, getHeightAt: terrain.getHeightAt };
 }
 
 export function resizeRenderer(renderer, camera, width, height, pixelRatio) {
