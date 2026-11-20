@@ -74,7 +74,14 @@
         </select>
       </label>
       <label class="toggle"><input id="battery-toggle" type="checkbox"> Ahorro</label>
+      <button id="camera-sensitivity-toggle" type="button" aria-expanded="false" aria-controls="camera-sensitivity-panel">Sensibilidad</button>
       <button id="debug-toggle" type="button" aria-pressed="false">Diagnóstico</button>
+    </section>
+    <section id="camera-sensitivity-panel" class="sensitivity-panel hidden" aria-label="Sensibilidad de cámara">
+      <div class="sensitivity-heading"><strong>Sensibilidad de cámara</strong><output id="camera-sensitivity-value" for="camera-sensitivity">50</output></div>
+      <input id="camera-sensitivity" type="range" min="1" max="100" step="1" value="50" aria-label="Sensibilidad de cámara general">
+      <div class="sensitivity-scale"><span>Baja</span><span>Alta</span></div>
+      <p>Controla la velocidad de giro de la cámara al deslizar el dedo.</p>
     </section>
     <section id="touch-controls" aria-label="Controles táctiles">
       <div class="stick-zone" id="move-zone"><div class="stick-base"><div class="stick-knob" id="move-knob"></div></div><span>MOVER</span></div>
