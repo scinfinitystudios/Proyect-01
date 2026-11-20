@@ -2,7 +2,7 @@
 export const ISLAND = Object.freeze({
   size: 2500,
   halfSize: 1250,
-  segments: 256,
+  segments: 384,
   seaLevel: -2,
   cityRadius: 260
 });
@@ -78,16 +78,17 @@ export function getIslandHeight(x,z) {
   return h;
 }
 function terrainColor(height,x,z) {
+  const detail = noise2D(x * 2.8, z * 2.8) * 0.035 + noise2D(x * 6.2, z * 6.2) * 0.014;
   const radius=Math.hypot(x,z);
   // Arena costera ancha y transición de vegetación a playa.
-  if(height<5 || (radius>1050 && height<15)) return [0.82,0.72,0.49];
-  if(height<12) return [0.66,0.68,0.39];
-  if(height>175) return [0.88,0.91,0.94];
-  if(height>105) return [0.48,0.55,0.48];
-  if(x>400 && z>-250 && z<500) return [0.48,0.66,0.36];
-  if(x>350 && z< -300) return [0.20,0.43,0.25];
-  if(x< -400 && z>350) return [0.42,0.56,0.31];
-  return [0.34,0.58,0.32];
+  if(height<5 || (radius>1050 && height<15)) return [0.82 + detail,0.72 + detail * 0.8,0.49 + detail * 0.45];
+  if(height<12) return [0.66 + detail,0.68 + detail,0.39 + detail * 0.6];
+  if(height>175) return [0.88 + detail * 0.4,0.91 + detail * 0.4,0.94 + detail * 0.3];
+  if(height>105) return [0.48 + detail,0.55 + detail,0.48 + detail];
+  if(x>400 && z>-250 && z<500) return [0.48 + detail,0.66 + detail,0.36 + detail];
+  if(x>350 && z< -300) return [0.20 + detail,0.43 + detail,0.25 + detail];
+  if(x< -400 && z>350) return [0.42 + detail,0.56 + detail,0.31 + detail];
+  return [0.34 + detail,0.58 + detail,0.32 + detail];
 }
 function createWaterRibbon(THREE,scene,points,width,name,material) {
   const curve=new THREE.CatmullRomCurve3(points.map(([x,z])=>new THREE.Vector3(x,getIslandHeight(x,z)+.65,z)));
@@ -150,11 +151,11 @@ export function createIslandTerrain(THREE,scene) {
   geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
   geometry.setAttribute("color",new THREE.BufferAttribute(colors,3));
   geometry.setIndex(indices);geometry.computeVertexNormals();
-  const terrain=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({vertexColors:true}));
+  const terrain=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.94, metalness:0.0}));
   terrain.name="IslaLibre_Terreno";
   terrain.receiveShadow = true;
   scene.add(terrain);
-  const ocean=new THREE.Mesh(new THREE.PlaneGeometry(3400,3400),new THREE.MeshLambertMaterial({color:0x287fa7}));
+  const ocean=new THREE.Mesh(new THREE.PlaneGeometry(3400,3400),new THREE.MeshStandardMaterial({color:0x176f9d, roughness:0.22, metalness:0.12}));
   ocean.name="IslaLibre_Oceano";
   ocean.rotation.x=-Math.PI/2;
   ocean.position.y=ISLAND.seaLevel;
