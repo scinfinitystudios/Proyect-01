@@ -1,4 +1,4 @@
-const CACHE_NAME = "isla-libre-visual-v11";
+const CACHE_NAME = "isla-libre-visual-v12";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,7 +8,8 @@ const APP_SHELL = [
   "./js/engine/renderer.js",
   "./js/performance/quality-manager.js",
   "./js/performance/debug-panel.js",
-  "./js/world/terrain.js"
+  "./js/world/terrain.js",
+  "./js/world/environment-details.js"
 ];
 
 self.addEventListener("install", event => {
