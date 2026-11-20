@@ -325,15 +325,24 @@ function startGame() {
     const length = Math.hypot(forward, strafe);
     const isMoving = length > 0.08;
     setOperatorAnimation(isMoving);
+    let moveWorldX = 0;
+    let moveWorldZ = 0;
     if (isMoving) {
       const speed = 5.2;
       const f = forward / Math.max(1, length);
       const s = strafe / Math.max(1, length);
-      player.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
-      player.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
+      moveWorldX = Math.sin(yaw) * f + Math.cos(yaw) * s;
+      moveWorldZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
+      player.position.x += moveWorldX * speed * step;
+      player.position.z += moveWorldZ * speed * step;
+      // El operador mira hacia su desplazamiento; la cámara mantiene su propio ángulo orbital.
+      const targetPlayerYaw = Math.atan2(moveWorldX, -moveWorldZ);
+      const angleDelta = Math.atan2(
+        Math.sin(targetPlayerYaw - player.rotation.y),
+        Math.cos(targetPlayerYaw - player.rotation.y)
+      );
+      player.rotation.y += angleDelta * Math.min(1, step * 10);
       walkPhase += step * 10;
-    } else {
-
     }
 
     const groundHeight = getHeightAt(player.position.x, player.position.z);
@@ -347,22 +356,23 @@ function startGame() {
       }
     }
     player.position.y = groundHeight + verticalOffset;
-    player.rotation.y = yaw;
     const cameraDistance = 4.35;
-    // La cámara queda detrás del jugador, pero apunta hacia delante del camino.
-    // Así el personaje permanece visible y no tapa el punto de mira.
+    // Cámara orbital independiente: rota alrededor del operador y lo sigue suavemente.
     const forwardX = Math.sin(yaw);
     const forwardZ = -Math.cos(yaw);
-    camera.position.set(
+    const desiredCameraPosition = new THREE.Vector3(
       player.position.x - forwardX * cameraDistance,
       groundHeight + 2.65 + pitch * 1.1,
       player.position.z - forwardZ * cameraDistance
     );
-    camera.lookAt(
-      player.position.x + forwardX * 4.0,
+    const followSmoothness = 1 - Math.exp(-step * 12);
+    camera.position.lerp(desiredCameraPosition, followSmoothness);
+    const lookTarget = new THREE.Vector3(
+      player.position.x + forwardX * 0.35,
       groundHeight + 1.28 + pitch * 1.6,
-      player.position.z + forwardZ * 4.0
+      player.position.z + forwardZ * 0.35
     );
+    camera.lookAt(lookTarget);
   }
 
   function renderFrame() {
