@@ -375,7 +375,7 @@ function startGame() {
       // El operador mira hacia su desplazamiento; la cámara mantiene su propio ángulo orbital.
       // El modelo usa el eje frontal local +Z; con la corrección de 180°
       // el yaw debe invertir el componente X para alinear cuerpo y desplazamiento.
-      const targetPlayerYaw = Math.atan2(-moveWorldX, -moveWorldZ);
+      const targetPlayerYaw = Math.atan2(-moveWorldX, moveWorldZ);
       const angleDelta = Math.atan2(
         Math.sin(targetPlayerYaw - player.rotation.y),
         Math.cos(targetPlayerYaw - player.rotation.y)
