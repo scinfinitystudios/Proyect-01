@@ -1,4 +1,4 @@
-const CACHE_NAME = "fps-mobile-shell-v5";
+const CACHE_NAME = "fps-mobile-shell-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
