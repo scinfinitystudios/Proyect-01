@@ -59,8 +59,29 @@ function startGame() {
     "./assets/sci-fi-soldier-rigged.glb",
     (gltf) => {
       const model = gltf.scene;
-      model.scale.setScalar(0.5);
+      // Normaliza el tamaño real del GLB: algunos modelos vienen en centímetros
+      // aunque el mundo del juego utiliza metros.
+      model.scale.setScalar(1);
       model.rotation.y = 0;
+      model.updateMatrixWorld(true);
+      const modelBounds = new THREE.Box3().setFromObject(model);
+      const modelSize = new THREE.Vector3();
+      const modelCenter = new THREE.Vector3();
+      modelBounds.getSize(modelSize);
+      modelBounds.getCenter(modelCenter);
+      if (Number.isFinite(modelSize.y) && modelSize.y > 0.001) {
+        const targetHeight = 1.8;
+        model.scale.setScalar(targetHeight / modelSize.y);
+        model.updateMatrixWorld(true);
+        const normalizedBounds = new THREE.Box3().setFromObject(model);
+        const normalizedCenter = new THREE.Vector3();
+        normalizedBounds.getCenter(normalizedCenter);
+        model.position.x -= normalizedCenter.x;
+        model.position.y -= normalizedBounds.min.y;
+        model.position.z -= normalizedCenter.z;
+      } else {
+        model.scale.setScalar(0.01);
+      }
       model.traverse((object) => {
         if (object.isMesh) {
           object.castShadow = true;
