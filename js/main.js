@@ -27,6 +27,13 @@ function startGame() {
   const moveKnob = document.querySelector("#move-knob");
   const lookSwipeZone = document.querySelector("#look-swipe-zone");
   const fireButton = document.querySelector("#fire-button");
+  const runButton = document.querySelector("#run-button");
+  let sprintEnabled = false;
+  runButton?.addEventListener("click", () => {
+    sprintEnabled = !sprintEnabled;
+    runButton.setAttribute("aria-pressed", String(sprintEnabled));
+    runButton.textContent = sprintEnabled ? "CORRIENDO" : "CORRER";
+  });
 
   if (!canvas || !loading || !qualitySelect || !fpsSelect || !batteryToggle || !debugToggle) {
     throw new Error("Faltan elementos necesarios en index.html.");
@@ -62,7 +69,8 @@ function startGame() {
       // Normaliza el tamaño real del GLB: algunos modelos vienen en centímetros
       // aunque el mundo del juego utiliza metros.
       model.scale.setScalar(1);
-      model.rotation.y = 0;
+      // El GLB tiene su eje frontal invertido respecto al forward de Three.js.
+      model.rotation.y = Math.PI;
       model.updateMatrixWorld(true);
       const modelBounds = new THREE.Box3().setFromObject(model);
       const modelSize = new THREE.Vector3();
@@ -357,7 +365,7 @@ function startGame() {
     let moveWorldX = 0;
     let moveWorldZ = 0;
     if (isMoving) {
-      const speed = 5.2;
+      const speed = sprintEnabled ? 8.5 : 5.2;
       const f = forward / Math.max(1, length);
       const s = strafe / Math.max(1, length);
       moveWorldX = Math.sin(yaw) * f + Math.cos(yaw) * s;
