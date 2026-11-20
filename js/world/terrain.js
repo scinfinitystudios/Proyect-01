@@ -151,9 +151,14 @@ export function createIslandTerrain(THREE,scene) {
   geometry.setAttribute("color",new THREE.BufferAttribute(colors,3));
   geometry.setIndex(indices);geometry.computeVertexNormals();
   const terrain=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({vertexColors:true}));
-  terrain.name="IslaLibre_Terreno";scene.add(terrain);
+  terrain.name="IslaLibre_Terreno";
+  terrain.receiveShadow = true;
+  scene.add(terrain);
   const ocean=new THREE.Mesh(new THREE.PlaneGeometry(3400,3400),new THREE.MeshLambertMaterial({color:0x287fa7}));
-  ocean.name="IslaLibre_Oceano";ocean.rotation.x=-Math.PI/2;ocean.position.y=ISLAND.seaLevel;scene.add(ocean);
+  ocean.name="IslaLibre_Oceano";
+  ocean.rotation.x=-Math.PI/2;
+  ocean.position.y=ISLAND.seaLevel;
+  scene.add(ocean);
   createIslandWater(THREE,scene);
   return {terrain,ocean,getHeightAt:getIslandHeight};
 }
