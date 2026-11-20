@@ -1,4 +1,5 @@
 // Terreno procedural de Isla Libre con cauces, cuencas y costa jugable.
+import { createEnvironmentDetails } from "./environment-details.js";
 export const ISLAND = Object.freeze({
   size: 2500,
   halfSize: 1250,
@@ -161,5 +162,6 @@ export function createIslandTerrain(THREE,scene) {
   ocean.position.y=ISLAND.seaLevel;
   scene.add(ocean);
   createIslandWater(THREE,scene);
+  createEnvironmentDetails(THREE, scene, getIslandHeight);
   return {terrain,ocean,getHeightAt:getIslandHeight};
 }
