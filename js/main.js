@@ -2,6 +2,7 @@ import { CONFIG } from "./config.js";
 import { createRenderer, createInitialScene } from "./engine/renderer.js";
 import { QualityManager } from "./performance/quality-manager.js";
 import { DebugPanel } from "./performance/debug-panel.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js";
 
 function showStartupError(error) {
   console.error("[FPS Mobile] Error de inicio:", error);
@@ -43,138 +44,76 @@ function startGame() {
   const { scene, camera, getHeightAt } = createInitialScene(THREE);
   const quality = new QualityManager(renderer, camera);
 
-  // Operador táctico de Isla Libre: modelo procedural detallado, sin alterar el resto del juego.
+  // Operador táctico 3D importado desde GLB, con esqueleto y clips originales.
   const player = new THREE.Group();
-  const mat = (color, roughness = 0.82, metalness = 0.04) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
-  const uniform = mat(0x626044);
-  const uniformDark = mat(0x424333);
-  const armor = mat(0x34382f);
-  const armorEdge = mat(0x414b43);
-  const webbing = mat(0x888064);
-  const pouchMat = mat(0x555744);
-  const bootMat = mat(0x4a4635);
-  const gloveMat = mat(0x454533);
-  const skin = mat(0x9b765d);
-  const helmetMat = mat(0x5a6043);
-  const goggleMat = mat(0x111b20);
-  const lensMat = new THREE.MeshStandardMaterial({ color: 0x54717a, emissive: 0x101a20, roughness: 0.24, metalness: 0.35 });
-  const maskMat = mat(0x202725);
-
-  const addMesh = (geometry, material, parent, position, scale, rotation) => {
-    const mesh = new THREE.Mesh(geometry, material);
-    if (position) mesh.position.set(position[0], position[1], position[2]);
-    if (scale) mesh.scale.set(scale[0], scale[1], scale[2]);
-    if (rotation) mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
-    parent.add(mesh);
-    return mesh;
-  };
-  const box = (parent, material, position, size, rotation) =>
-    addMesh(new THREE.BoxGeometry(size[0], size[1], size[2]), material, parent, position, [1,1,1], rotation);
-  const capsule = (parent, material, position, radius, length, rotation) =>
-    addMesh(new THREE.CapsuleGeometry(radius, length, 4, 10), material, parent, position, [1,1,1], rotation);
-
-  // Torso, cuello y cabeza cubiertos por equipo.
-  const torso = capsule(player, uniform, [0,1.35,0], 0.32, 0.55);
-  addMesh(new THREE.CylinderGeometry(0.12,0.13,0.16,10), uniformDark, player, [0,1.78,0]);
-  // Cuello alto de tela, como la bufanda táctica de la referencia.
-  addMesh(new THREE.TorusGeometry(0.145,0.055,8,18), uniform, player, [0,1.83,0], [1,1,1], [Math.PI/2,0,0]);
-  addMesh(new THREE.SphereGeometry(0.235,16,12), skin, player, [0,2.02,0], [0.9,1.05,0.9]);
-
-  // Casco militar con visera, rieles laterales y soporte frontal.
-  addMesh(new THREE.SphereGeometry(0.265,18,12,0,Math.PI*2,0,Math.PI*0.58), helmetMat, player, [0,2.16,0.015], [1.08,0.9,1.02]);
-  box(player, uniformDark, [0,2.105,-0.205], [0.43,0.045,0.12]);
-  box(player, armorEdge, [-0.265,2.13,0.015], [0.045,0.17,0.23]);
-  box(player, armorEdge, [0.265,2.13,0.015], [0.045,0.17,0.23]);
-  box(player, armor, [0,2.22,-0.255], [0.12,0.12,0.045]);
-  addMesh(new THREE.CylinderGeometry(0.012,0.012,0.23,6), armorEdge, player, [0.22,2.29,0.08], null, [0,0,-0.18]);
-
-  // Gafas tácticas y pasamontañas.
-  box(player, goggleMat, [0,2.075,-0.211], [0.39,0.105,0.055]);
-  box(player, lensMat, [-0.095,2.078,-0.243], [0.145,0.067,0.018]);
-  box(player, lensMat, [0.095,2.078,-0.243], [0.145,0.067,0.018]);
-  box(player, armor, [0,2.078,-0.258], [0.035,0.08,0.025]);
-  addMesh(new THREE.SphereGeometry(0.205,14,10), maskMat, player, [0,1.96,-0.055], [0.94,0.62,0.88]);
-  box(player, armorEdge, [0,1.91,-0.226], [0.19,0.07,0.035]);
-  for (let i=0;i<3;i++) box(player, uniformDark, [0,1.94+i*0.035,-0.246], [0.12,0.009,0.008]);
-
-  // Chaleco portaplacas, correas de hombro y cinturón.
-  addMesh(new THREE.BoxGeometry(0.62,0.59,0.23), armor, player, [0,1.39,-0.045], [1,1,1]);
-  box(player, armorEdge, [0,1.68,-0.045], [0.64,0.09,0.24]);
-  // Panel acolchado del pecho y bandas horizontales MOLLE.
-  box(player, webbing, [0,1.55,-0.174], [0.52,0.055,0.035]);
-  box(player, webbing, [0,1.47,-0.178], [0.54,0.045,0.035]);
-  box(player, webbing, [0,1.29,-0.178], [0.52,0.045,0.035]);
-  box(player, armorEdge, [0,1.76,-0.035], [0.19,0.075,0.17]);
-  box(player, pouchMat, [0.39,1.39,-0.17], [0.13,0.2,0.105]);
-  box(player, webbing, [0.39,1.49,-0.225], [0.105,0.03,0.018]);
-  box(player, webbing, [-0.205,1.69,-0.055], [0.105,0.42,0.075], [0,0,-0.12]);
-  box(player, webbing, [0.205,1.69,-0.055], [0.105,0.42,0.075], [0,0,0.12]);
-  box(player, uniformDark, [0,1.075,0], [0.69,0.13,0.27]);
-  box(player, armorEdge, [0,1.075,-0.15], [0.12,0.12,0.035]);
-  for (let i=0;i<3;i++) {
-    box(player, pouchMat, [-0.205+i*0.205,1.37,-0.183], [0.16,0.22,0.105]);
-    box(player, webbing, [-0.205+i*0.205,1.47,-0.24], [0.13,0.035,0.018]);
-  }
-  box(player, pouchMat, [-0.39,1.22,-0.07], [0.13,0.2,0.15]);
-  box(player, pouchMat, [0.39,1.22,-0.07], [0.13,0.2,0.15]);
-  // Bolsas utilitarias adicionales en el cinturón.
-  box(player, armorEdge, [-0.49,1.06,-0.015], [0.13,0.19,0.16]);
-  box(player, armorEdge, [0.49,1.06,-0.015], [0.13,0.19,0.16]);
-  // Mochila compacta, bolsillos y correas.
-  box(player, armor, [0,1.39,0.255], [0.43,0.55,0.22]);
-  box(player, pouchMat, [0,1.27,0.385], [0.31,0.22,0.07]);
-  box(player, armorEdge, [0,1.58,0.385], [0.3,0.12,0.07]);
-  box(player, webbing, [-0.2,1.42,0.12], [0.055,0.46,0.06], [0,0,-0.1]);
-  box(player, webbing, [0.2,1.42,0.12], [0.055,0.46,0.06], [0,0,0.1]);
-
-  // Brazos articulados, coderas y guantes.
-  const leftArmPivot = new THREE.Group();
-  leftArmPivot.position.set(-0.43,1.67,0);
-  capsule(leftArmPivot, uniform, [0,-0.31,0], 0.105,0.43,[0,0,-0.12]);
-  addMesh(new THREE.SphereGeometry(0.12,10,8), armorEdge,leftArmPivot,[-0.015,-0.47,-0.005],[1,0.72,0.75]);
-  capsule(leftArmPivot, skin, [0,-0.56,-0.012],0.078,0.18);
-  capsule(leftArmPivot, gloveMat, [0,-0.68,-0.015],0.105,0.12);
-  box(leftArmPivot, armorEdge, [0,-0.68,-0.09],[0.13,0.07,0.045]);
-  box(leftArmPivot, pouchMat, [0,-0.28,-0.105],[0.12,0.13,0.045]);
-  player.add(leftArmPivot);
-  const rightArmPivot = new THREE.Group();
-  rightArmPivot.position.set(0.43,1.67,0);
-  capsule(rightArmPivot, uniform, [0,-0.31,0],0.105,0.43,[0,0,0.12]);
-  addMesh(new THREE.SphereGeometry(0.12,10,8),armorEdge,rightArmPivot,[0.015,-0.47,-0.005],[1,0.72,0.75]);
-  capsule(rightArmPivot,skin,[0,-0.56,-0.012],0.078,0.18);
-  capsule(rightArmPivot,gloveMat,[0,-0.68,-0.015],0.105,0.12);
-  box(rightArmPivot,armorEdge,[0,-0.68,-0.09],[0.13,0.07,0.045]);
-  box(rightArmPivot,pouchMat,[0,-0.28,-0.105],[0.12,0.13,0.045]);
-  player.add(rightArmPivot);
-
-  // Pantalón táctico, bolsillos cargo, rodilleras y botas.
-  const leftLegPivot = new THREE.Group();
-  leftLegPivot.position.set(-0.18,0.91,0);
-  capsule(leftLegPivot,uniformDark,[0,-0.31,0],0.13,0.48);
-  box(leftLegPivot,pouchMat,[-0.105,-0.29,-0.015],[0.09,0.2,0.15]);
-  box(leftLegPivot,webbing,[-0.105,-0.19,-0.095],[0.075,0.025,0.018]);
-  box(leftLegPivot,uniform,[0,-0.12,-0.015],[0.27,0.16,0.22]);
-  addMesh(new THREE.SphereGeometry(0.145,12,8),armorEdge,leftLegPivot,[0,-0.48,-0.035],[1,0.72,0.55]);
-  addMesh(new THREE.SphereGeometry(0.16,12,8),bootMat,leftLegPivot,[0,-0.67,-0.085],[0.95,0.55,1.35]);
-  box(leftLegPivot,uniformDark,[0,-0.58,-0.03],[0.2,0.08,0.18]);
-  for (let lace=0; lace<4; lace++) box(leftLegPivot,webbing,[0,-0.65+lace*0.025,-0.19],[0.105,0.012,0.012]);
-  player.add(leftLegPivot);
-  const rightLegPivot = new THREE.Group();
-  rightLegPivot.position.set(0.18,0.91,0);
-  capsule(rightLegPivot,uniformDark,[0,-0.31,0],0.13,0.48);
-  box(rightLegPivot,pouchMat,[0.105,-0.29,-0.015],[0.09,0.2,0.15]);
-  box(rightLegPivot,webbing,[0.105,-0.19,-0.095],[0.075,0.025,0.018]);
-  box(rightLegPivot,uniform,[0,-0.12,-0.015],[0.27,0.16,0.22]);
-  addMesh(new THREE.SphereGeometry(0.145,12,8),armorEdge,rightLegPivot,[0,-0.48,-0.035],[1,0.72,0.55]);
-  addMesh(new THREE.SphereGeometry(0.16,12,8),bootMat,rightLegPivot,[0,-0.67,-0.085],[0.95,0.55,1.35]);
-  box(rightLegPivot,uniformDark,[0,-0.58,-0.03],[0.2,0.08,0.18]);
-  for (let lace=0; lace<4; lace++) box(rightLegPivot,webbing,[0,-0.65+lace*0.025,-0.19],[0.105,0.012,0.012]);
-  player.add(rightLegPivot);
-  player.position.set(0, getHeightAt(0, 15), 15);
   scene.add(player);
-  player.traverse((object) => {
-    if (object.isMesh) object.castShadow = true;
-  });
+  player.position.set(0, getHeightAt(0, 15), 15);
+  const gltfLoader = new GLTFLoader();
+  let operatorMixer = null;
+  let operatorActions = {};
+  let activeOperatorAction = null;
+  let operatorReady = false;
+  let operatorLoadError = null;
+
+  gltfLoader.load(
+    "./assets/sci-fi-soldier-rigged.glb",
+    (gltf) => {
+      const model = gltf.scene;
+      model.scale.setScalar(100);
+      model.rotation.y = 0;
+      model.traverse((object) => {
+        if (object.isMesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+          if (object.material) {
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            for (const material of materials) {
+              material.side = THREE.DoubleSide;
+              material.needsUpdate = true;
+            }
+          }
+        }
+      });
+      player.add(model);
+      operatorMixer = new THREE.AnimationMixer(model);
+      for (const clip of gltf.animations) {
+        operatorActions[clip.name.toLowerCase()] = operatorMixer.clipAction(clip);
+      }
+      const initialAction = operatorActions.walk || operatorActions.run;
+      if (initialAction) {
+        initialAction.play();
+        initialAction.paused = true;
+        activeOperatorAction = initialAction;
+      }
+      operatorReady = true;
+      const status = document.querySelector("#game-message");
+      if (status) status.textContent = "Operador táctico 3D cargado.";
+    },
+    undefined,
+    (error) => {
+      operatorLoadError = error;
+      console.error("[Isla Libre] No se pudo cargar el operador GLB:", error);
+      const status = document.querySelector("#game-message");
+      if (status) status.textContent = "No se pudo cargar el modelo 3D. Comprueba assets/sci-fi-soldier-rigged.glb.";
+    }
+  );
+
+  function setOperatorAnimation(moving) {
+    if (!operatorMixer) return;
+    const next = moving
+      ? (operatorActions.run || operatorActions.walk)
+      : (operatorActions.walk || operatorActions.run);
+    if (!next || next === activeOperatorAction) {
+      if (activeOperatorAction) activeOperatorAction.paused = !moving;
+      return;
+    }
+    next.reset();
+    next.paused = false;
+    next.play();
+    if (activeOperatorAction) next.crossFadeFrom(activeOperatorAction, 0.18, true);
+    activeOperatorAction = next;
+  }
+
   camera.position.set(0, 2.7, 19.2);
   camera.lookAt(0, 1.2, 15);
   let walkPhase = 0;
@@ -348,6 +287,7 @@ function startGame() {
   });
 
   function updateSimulation(step) {
+    if (operatorMixer) operatorMixer.update(step);
     yaw += lookDelta.x;
     pitch = Math.max(-1.15, Math.min(1.15, pitch - lookDelta.y));
     lookDelta.x = 0;
@@ -355,25 +295,17 @@ function startGame() {
     const forward = -moveInput.y;
     const strafe = moveInput.x;
     const length = Math.hypot(forward, strafe);
-    if (length > 0.08) {
+    const isMoving = length > 0.08;
+    setOperatorAnimation(isMoving);
+    if (isMoving) {
       const speed = 5.2;
       const f = forward / Math.max(1, length);
       const s = strafe / Math.max(1, length);
       player.position.x += (Math.sin(yaw) * f + Math.cos(yaw) * s) * speed * step;
       player.position.z += (-Math.cos(yaw) * f + Math.sin(yaw) * s) * speed * step;
       walkPhase += step * 10;
-      const stride = grounded ? Math.sin(walkPhase) * 0.58 : 0.12;
-      leftLegPivot.rotation.x = stride;
-      rightLegPivot.rotation.x = -stride;
-      leftArmPivot.rotation.x = -stride * 0.62;
-      rightArmPivot.rotation.x = stride * 0.62;
-      torso.position.y = 1.35 + Math.abs(Math.sin(walkPhase * 2)) * 0.025;
     } else {
-      leftLegPivot.rotation.x *= 0.78;
-      rightLegPivot.rotation.x *= 0.78;
-      leftArmPivot.rotation.x *= 0.78;
-      rightArmPivot.rotation.x *= 0.78;
-      torso.position.y += (1.35 - torso.position.y) * 0.18;
+
     }
 
     const groundHeight = getHeightAt(player.position.x, player.position.z);
