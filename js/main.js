@@ -201,33 +201,40 @@ function startGame() {
     let lookPointerId = null;
     let lastPointerX = 0;
     let lastPointerY = 0;
-    const sensitivity = 0.006;
+    const sensitivity = 0.0048;
+    const endLookGesture = (event) => {
+      if (event && event.pointerId !== undefined && event.pointerId !== lookPointerId) return;
+      lookPointerId = null;
+    };
     lookSwipeZone.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button")) return;
-      event.preventDefault();
+      if (event.target.closest("button, input, select, label")) return;
       if (lookPointerId !== null) return;
+      event.preventDefault();
       lookPointerId = event.pointerId;
       lastPointerX = event.clientX;
       lastPointerY = event.clientY;
-      lookSwipeZone.setPointerCapture(lookPointerId);
+      try { lookSwipeZone.setPointerCapture(lookPointerId); } catch {}
     });
     lookSwipeZone.addEventListener("pointermove", (event) => {
       if (event.pointerId !== lookPointerId) return;
       event.preventDefault();
-      const dx = event.clientX - lastPointerX;
-      const dy = event.clientY - lastPointerY;
-      lastPointerX = event.clientX;
-      lastPointerY = event.clientY;
-      lookDelta.x += dx * sensitivity;
-      lookDelta.y += dy * sensitivity;
+      const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
+      for (const sample of samples) {
+        const dx = Math.max(-80, Math.min(80, sample.clientX - lastPointerX));
+        const dy = Math.max(-80, Math.min(80, sample.clientY - lastPointerY));
+        lastPointerX = sample.clientX;
+        lastPointerY = sample.clientY;
+        lookDelta.x += dx * sensitivity;
+        lookDelta.y += dy * sensitivity;
+      }
     });
-    const endLookGesture = (event) => {
-      if (event.pointerId !== lookPointerId) return;
-      lookPointerId = null;
-    };
     lookSwipeZone.addEventListener("pointerup", endLookGesture);
     lookSwipeZone.addEventListener("pointercancel", endLookGesture);
     lookSwipeZone.addEventListener("lostpointercapture", endLookGesture);
+    window.addEventListener("blur", () => endLookGesture());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) endLookGesture();
+    });
   }
   const raycaster = new THREE.Raycaster();
   const screenCenter = new THREE.Vector2(0, 0);
