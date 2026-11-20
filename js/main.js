@@ -53,6 +53,8 @@ function startGame() {
 
   // Operador táctico 3D importado desde GLB, con esqueleto y clips originales.
   const player = new THREE.Group();
+  // El operador comienza mirando hacia -Z, hacia el frente del escenario.
+  player.rotation.y = Math.PI;
   scene.add(player);
   player.position.set(0, getHeightAt(0, 15), 15);
   const gltfLoader = new GLTFLoader();
@@ -357,33 +359,25 @@ function startGame() {
     pitch = Math.max(-1.15, Math.min(1.15, pitch - lookDelta.y));
     lookDelta.x = 0;
     lookDelta.y = 0;
-    const forward = -moveInput.y;
-    const strafe = moveInput.x;
-    const length = Math.hypot(forward, strafe);
-    const isMoving = length > 0.08;
+    // Controles tipo shooter: izquierda/derecha giran el cuerpo;
+    // arriba/abajo avanzan o retroceden sobre el eje frontal del operador.
+    const forwardInput = -moveInput.y;
+    const turnInput = moveInput.x;
+    const isMoving = Math.abs(forwardInput) > 0.08;
     setOperatorAnimation(isMoving);
-    let moveWorldX = 0;
-    let moveWorldZ = 0;
+    if (Math.abs(turnInput) > 0.025) {
+      const turnSpeed = 2.8; // radianes por segundo
+      player.rotation.y -= turnInput * turnSpeed * step;
+    }
     if (isMoving) {
       const speed = sprintEnabled ? 8.5 : 5.2;
-      const f = forward / Math.max(1, length);
-      const s = strafe / Math.max(1, length);
-      moveWorldX = Math.sin(yaw) * f + Math.cos(yaw) * s;
-      moveWorldZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
-      player.position.x += moveWorldX * speed * step;
-      player.position.z += moveWorldZ * speed * step;
-      // El operador mira hacia su desplazamiento; la cámara mantiene su propio ángulo orbital.
-      // El modelo usa el eje frontal local +Z; con la corrección de 180°
-      // el yaw debe invertir el componente X para alinear cuerpo y desplazamiento.
-      const targetPlayerYaw = Math.atan2(-moveWorldX, moveWorldZ);
-      const angleDelta = Math.atan2(
-        Math.sin(targetPlayerYaw - player.rotation.y),
-        Math.cos(targetPlayerYaw - player.rotation.y)
-      );
-      player.rotation.y += angleDelta * Math.min(1, step * 10);
+      // El modelo GLB está corregido 180°; su frente efectivo es el +Z local del grupo.
+      const playerForwardX = Math.sin(player.rotation.y);
+      const playerForwardZ = Math.cos(player.rotation.y);
+      player.position.x += playerForwardX * forwardInput * speed * step;
+      player.position.z += playerForwardZ * forwardInput * speed * step;
       walkPhase += step * 10;
     }
-
     const groundHeight = getHeightAt(player.position.x, player.position.z);
     if (!grounded) {
       verticalVelocity -= 18 * step;
