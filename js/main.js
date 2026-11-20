@@ -45,7 +45,7 @@ function startGame() {
 
   // Operador táctico de Isla Libre: modelo procedural detallado, sin alterar el resto del juego.
   const player = new THREE.Group();
-  const mat = (color, roughness = 1) => new THREE.MeshLambertMaterial({ color });
+  const mat = (color, roughness = 0.82, metalness = 0.04) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
   const uniform = mat(0x59634a);
   const uniformDark = mat(0x343d31);
   const armor = mat(0x252d2b);
@@ -57,7 +57,7 @@ function startGame() {
   const skin = mat(0x9b765d);
   const helmetMat = mat(0x414b3d);
   const goggleMat = mat(0x111b20);
-  const lensMat = new THREE.MeshLambertMaterial({ color: 0x54717a, emissive: 0x101a20 });
+  const lensMat = new THREE.MeshStandardMaterial({ color: 0x54717a, emissive: 0x101a20, roughness: 0.24, metalness: 0.35 });
   const maskMat = mat(0x202725);
 
   const addMesh = (geometry, material, parent, position, scale, rotation) => {
@@ -74,7 +74,7 @@ function startGame() {
     addMesh(new THREE.CapsuleGeometry(radius, length, 4, 10), material, parent, position, [1,1,1], rotation);
 
   // Torso, cuello y cabeza cubiertos por equipo.
-  capsule(player, uniform, [0,1.35,0], 0.32, 0.55);
+  const torso = capsule(player, uniform, [0,1.35,0], 0.32, 0.55);
   addMesh(new THREE.CylinderGeometry(0.12,0.13,0.16,10), uniformDark, player, [0,1.78,0]);
   addMesh(new THREE.SphereGeometry(0.235,16,12), skin, player, [0,2.02,0], [0.9,1.05,0.9]);
 
@@ -153,7 +153,7 @@ function startGame() {
   player.traverse((object) => {
     if (object.isMesh) object.castShadow = true;
   });
-  camera.position.set(0, 3.1, 20.5);
+  camera.position.set(0, 2.7, 19.2);
   camera.lookAt(0, 1.2, 15);
   let walkPhase = 0;
   let verticalVelocity = 0;
@@ -366,19 +366,19 @@ function startGame() {
     }
     player.position.y = groundHeight + verticalOffset;
     player.rotation.y = yaw;
-    const cameraDistance = 5.5;
+    const cameraDistance = 4.35;
     // La cámara queda detrás del jugador, pero apunta hacia delante del camino.
     // Así el personaje permanece visible y no tapa el punto de mira.
     const forwardX = Math.sin(yaw);
     const forwardZ = -Math.cos(yaw);
     camera.position.set(
       player.position.x - forwardX * cameraDistance,
-      groundHeight + 3.0 + pitch * 1.2,
+      groundHeight + 2.65 + pitch * 1.1,
       player.position.z - forwardZ * cameraDistance
     );
     camera.lookAt(
       player.position.x + forwardX * 4.0,
-      groundHeight + 1.35 + pitch * 1.8,
+      groundHeight + 1.28 + pitch * 1.6,
       player.position.z + forwardZ * 4.0
     );
   }
