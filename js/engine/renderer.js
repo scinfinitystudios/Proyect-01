@@ -26,9 +26,7 @@ export function createRenderer(canvas) {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.18;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMappingExposure = 1.22;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.shadowMap.autoUpdate = true;
@@ -39,19 +37,19 @@ export function createRenderer(canvas) {
 // Escena base de Isla Libre: isla procedural, océano y lago principal.
 export function createInitialScene(THREE) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x91c8e8);
-  scene.fog = new THREE.Fog(0x91c8e8, 650, 2350);
+  scene.background = new THREE.Color(0x9bbbd0);
+  scene.fog = new THREE.Fog(0x9bbbd0, 780, 2600);
 
-  const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2800);
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3000);
   camera.position.set(0, 3.1, 20.5);
   camera.lookAt(0, 1.2, 15);
 
-  const hemisphere = new THREE.HemisphereLight(0xe8f5ff, 0x536044, 1.55);
+  const hemisphere = new THREE.HemisphereLight(0xdcecff, 0x354333, 1.35);
   scene.add(hemisphere);
-  const sun = new THREE.DirectionalLight(0xffedcf, 2.35);
+  const sun = new THREE.DirectionalLight(0xffe5c4, 2.7);
   sun.position.set(-420, 680, 360);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1536, 1536);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -900;
   sun.shadow.camera.right = 900;
   sun.shadow.camera.top = 900;
@@ -60,7 +58,12 @@ export function createInitialScene(THREE) {
   sun.shadow.camera.far = 1800;
   sun.shadow.normalBias = 0.035;
   sun.shadow.bias = -0.00008;
+  sun.shadow.radius = 3;
   scene.add(sun);
+
+  const fill = new THREE.DirectionalLight(0xb6d3ed, 0.38);
+  fill.position.set(360, 180, -420);
+  scene.add(fill);
 
   const terrain = createIslandTerrain(THREE, scene);
   return { scene, camera, getHeightAt: terrain.getHeightAt };
