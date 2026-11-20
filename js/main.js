@@ -59,7 +59,7 @@ function startGame() {
     "./assets/sci-fi-soldier-rigged.glb",
     (gltf) => {
       const model = gltf.scene;
-      model.scale.setScalar(100);
+      model.scale.setScalar(1);
       model.rotation.y = 0;
       model.traverse((object) => {
         if (object.isMesh) {
