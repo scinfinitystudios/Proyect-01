@@ -1,8 +1,8 @@
 // Límites y presupuestos centralizados del motor.
 export const CONFIG = Object.freeze({
   render: {
-    maxPixelRatio: 1.6,
-    antialias: false,
+    maxPixelRatio: 2,
+    antialias: true,
     powerPreference: "high-performance",
     clearColor: 0x101820,
     fogNear: 18,
@@ -21,7 +21,7 @@ export const CONFIG = Object.freeze({
     lowerHoldMs: 1800,
     raiseHoldMs: 4500,
     minResolutionScale: 0.65,
-    maxResolutionScale: 1,
+    maxResolutionScale: 1.15,
     resolutionStep: 0.1,
     drawCallBudget: 100,
     triangleBudget: 100000
@@ -29,7 +29,8 @@ export const CONFIG = Object.freeze({
   quality: {
     low: { scale: 0.65, label: "Baja" },
     medium: { scale: 0.8, label: "Media" },
-    high: { scale: 1, label: "Alta" }
+    high: { scale: 1, label: "Alta" },
+    ultra: { scale: 1.15, label: "Ultra" }
   },
   debug: {
     enabledByQuery: "debug",
