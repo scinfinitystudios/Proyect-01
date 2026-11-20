@@ -153,8 +153,11 @@ function startGame() {
   let lastRenderTime = 0;
   const moveInput = { x: 0, y: 0 };
   const lookDelta = { x: 0, y: 0 };
+  // Yaw/pitch pertenecen a la cámara orbital; el operador solo gira al desplazarse.
   let yaw = 0;
   let pitch = 0;
+  const cameraLookTarget = new THREE.Vector3();
+  let cameraTargetInitialized = false;
   let visible = !document.hidden;
   let running = false;
   const fixedStep = CONFIG.performance.fixedStep;
@@ -365,14 +368,20 @@ function startGame() {
       groundHeight + 2.65 + pitch * 1.1,
       player.position.z - forwardZ * cameraDistance
     );
-    const followSmoothness = 1 - Math.exp(-step * 12);
+    const followSmoothness = 1 - Math.exp(-step * 10);
     camera.position.lerp(desiredCameraPosition, followSmoothness);
-    const lookTarget = new THREE.Vector3(
+    const desiredLookTarget = new THREE.Vector3(
       player.position.x + forwardX * 0.35,
       groundHeight + 1.28 + pitch * 1.6,
       player.position.z + forwardZ * 0.35
     );
-    camera.lookAt(lookTarget);
+    if (!cameraTargetInitialized) {
+      cameraLookTarget.copy(desiredLookTarget);
+      cameraTargetInitialized = true;
+    } else {
+      cameraLookTarget.lerp(desiredLookTarget, 1 - Math.exp(-step * 14));
+    }
+    camera.lookAt(cameraLookTarget);
   }
 
   function renderFrame() {
