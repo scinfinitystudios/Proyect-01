@@ -13,3 +13,11 @@
 .action-buttons button:active{transform:scale(.94);filter:brightness(1.25)}
 #game-message{z-index:1}
 @media(min-width:800px){.stick-zone{width:158px;height:158px}.stick-base{width:128px;height:128px}.action-buttons button{width:70px;height:70px}}
+
+/* Ajuste de sensibilidad de cámara general */
+.sensitivity-panel{position:fixed;top:max(58px,calc(env(safe-area-inset-top) + 52px));left:50%;transform:translateX(-50%);z-index:8;width:min(340px,calc(100vw - 28px));padding:14px 16px;border:1px solid #607783;border-radius:12px;background:#12232df2;box-shadow:0 8px 28px #0009;color:#eef4f7}
+.sensitivity-heading,.sensitivity-scale{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sensitivity-heading output{min-width:34px;text-align:center;padding:3px 7px;border-radius:7px;background:#245b61;color:#baf5e8;font-weight:800;font-variant-numeric:tabular-nums}
+#camera-sensitivity{display:block;width:100%;margin:16px 0 8px;accent-color:#65d6c4;touch-action:pan-y}
+.sensitivity-scale{font-size:11px;color:#b9cbd2}
+.sensitivity-panel p{margin:10px 0 0;color:#b9cbd2;font-size:11px;line-height:1.4}
