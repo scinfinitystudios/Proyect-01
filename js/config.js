@@ -1,7 +1,7 @@
 // Límites y presupuestos centralizados del motor.
 export const CONFIG = Object.freeze({
   render: {
-    maxPixelRatio: 1.5,
+    maxPixelRatio: 1.6,
     antialias: false,
     powerPreference: "high-performance",
     clearColor: 0x101820,
