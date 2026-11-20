@@ -204,7 +204,33 @@ function startGame() {
     let lookPointerId = null;
     let lastPointerX = 0;
     let lastPointerY = 0;
-    const sensitivity = 0.0048;
+    const sensitivityBase = 0.0048;
+    const sensitivityInput = document.querySelector("#camera-sensitivity");
+    const sensitivityValue = document.querySelector("#camera-sensitivity-value");
+    const sensitivityPanel = document.querySelector("#camera-sensitivity-panel");
+    const sensitivityToggle = document.querySelector("#camera-sensitivity-toggle");
+    let cameraSensitivity = 50;
+    try {
+      const savedSensitivity = Number(localStorage.getItem("isla-libre-camera-sensitivity"));
+      if (Number.isFinite(savedSensitivity) && savedSensitivity >= 1 && savedSensitivity <= 100) {
+        cameraSensitivity = savedSensitivity;
+      }
+    } catch {}
+    const updateSensitivityUI = () => {
+      if (sensitivityInput) sensitivityInput.value = String(cameraSensitivity);
+      if (sensitivityValue) sensitivityValue.textContent = String(cameraSensitivity);
+    };
+    updateSensitivityUI();
+    sensitivityInput?.addEventListener("input", () => {
+      cameraSensitivity = Number(sensitivityInput.value);
+      updateSensitivityUI();
+      try { localStorage.setItem("isla-libre-camera-sensitivity", String(cameraSensitivity)); } catch {}
+    });
+    sensitivityToggle?.addEventListener("click", () => {
+      const isHidden = sensitivityPanel?.classList.toggle("hidden");
+      sensitivityToggle.setAttribute("aria-expanded", String(!isHidden));
+    });
+    const sensitivity = () => sensitivityBase * (cameraSensitivity / 50);
     const endLookGesture = (event) => {
       if (event && event.pointerId !== undefined && event.pointerId !== lookPointerId) return;
       lookPointerId = null;
@@ -227,8 +253,8 @@ function startGame() {
         const dy = Math.max(-80, Math.min(80, sample.clientY - lastPointerY));
         lastPointerX = sample.clientX;
         lastPointerY = sample.clientY;
-        lookDelta.x += dx * sensitivity;
-        lookDelta.y += dy * sensitivity;
+        lookDelta.x += dx * sensitivity();
+        lookDelta.y += dy * sensitivity();
       }
     });
     lookSwipeZone.addEventListener("pointerup", endLookGesture);
