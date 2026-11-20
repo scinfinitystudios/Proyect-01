@@ -24,7 +24,11 @@ export function createRenderer(canvas) {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.render.maxPixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
-  renderer.shadowMap.enabled = false;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.info.autoReset = true;
   return { THREE, renderer };
 }
@@ -32,16 +36,27 @@ export function createRenderer(canvas) {
 // Escena base de Isla Libre: isla procedural, océano y lago principal.
 export function createInitialScene(THREE) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x91c5e5);
-  scene.fog = new THREE.Fog(0x91c5e5, 420, 1900);
+  scene.background = new THREE.Color(0x83b9dc);
+  scene.fog = new THREE.Fog(0x83b9dc, 520, 2100);
 
   const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 2800);
   camera.position.set(0, 3.1, 20.5);
   camera.lookAt(0, 1.2, 15);
 
-  scene.add(new THREE.HemisphereLight(0xe7f4ff, 0x526044, 1.7));
-  const sun = new THREE.DirectionalLight(0xfff0d6, 1.25);
-  sun.position.set(-650, 900, 450);
+  const hemisphere = new THREE.HemisphereLight(0xdceeff, 0x586047, 1.35);
+  scene.add(hemisphere);
+  const sun = new THREE.DirectionalLight(0xffe4bd, 2.1);
+  sun.position.set(-420, 680, 360);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -900;
+  sun.shadow.camera.right = 900;
+  sun.shadow.camera.top = 900;
+  sun.shadow.camera.bottom = -900;
+  sun.shadow.camera.near = 10;
+  sun.shadow.camera.far = 1800;
+  sun.shadow.normalBias = 0.035;
+  sun.shadow.bias = -0.00008;
   scene.add(sun);
 
   const terrain = createIslandTerrain(THREE, scene);

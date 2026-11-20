@@ -150,6 +150,9 @@ function startGame() {
   player.add(rightLegPivot);
   player.position.set(0, getHeightAt(0, 15), 15);
   scene.add(player);
+  player.traverse((object) => {
+    if (object.isMesh) object.castShadow = true;
+  });
   camera.position.set(0, 3.1, 20.5);
   camera.lookAt(0, 1.2, 15);
   let walkPhase = 0;
