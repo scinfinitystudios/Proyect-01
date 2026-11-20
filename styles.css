@@ -9,7 +9,7 @@
 .look-swipe-zone{position:absolute;top:76px;right:0;bottom:0;width:54%;pointer-events:auto;touch-action:none;cursor:grab}
 .action-buttons{position:absolute;z-index:2;right:max(18px,env(safe-area-inset-right));bottom:max(174px,calc(env(safe-area-inset-bottom) + 174px));display:flex;gap:12px;align-items:flex-end;pointer-events:auto}
 .action-buttons button{width:64px;height:64px;border-radius:50%;border:2px solid #ffffff88;background:#8a392dcc;color:white;font-weight:800;font-size:11px;letter-spacing:.5px;box-shadow:0 3px 12px #0009;touch-action:none}
-#jump-button{background:#276b83dd}
+#jump-button{background:#276b83dd}#run-button{background:#39734ddd}#run-button[aria-pressed="true"]{background:#b87922ee;border-color:#ffe0a3}
 .action-buttons button:active{transform:scale(.94);filter:brightness(1.25)}
 #game-message{z-index:1}
 @media(min-width:800px){.stick-zone{width:158px;height:158px}.stick-base{width:128px;height:128px}.action-buttons button{width:70px;height:70px}}
