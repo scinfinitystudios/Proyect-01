@@ -1,4 +1,4 @@
-const CACHE_NAME = "fps-mobile-shell-v10";
+const CACHE_NAME = "isla-libre-visual-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -7,7 +7,8 @@ const APP_SHELL = [
   "./js/main.js",
   "./js/engine/renderer.js",
   "./js/performance/quality-manager.js",
-  "./js/performance/debug-panel.js"
+  "./js/performance/debug-panel.js",
+  "./js/world/terrain.js"
 ];
 
 self.addEventListener("install", event => {
@@ -18,7 +19,7 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(key => key.startsWith("fps-mobile-shell-") && key !== CACHE_NAME)
+      keys.filter(key => (key.startsWith("fps-mobile-shell-") || key.startsWith("isla-libre-visual-")) && key !== CACHE_NAME)
         .map(key => caches.delete(key))
     ))
   );
