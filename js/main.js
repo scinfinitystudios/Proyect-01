@@ -43,71 +43,111 @@ function startGame() {
   const { scene, camera, getHeightAt } = createInitialScene(THREE);
   const quality = new QualityManager(renderer, camera);
 
-  // Personaje articulado: pivotes en hombros y caderas para animaciones naturales.
+  // Operador táctico de Isla Libre: modelo procedural detallado, sin alterar el resto del juego.
   const player = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: 0xd7a47b });
-  const clothes = new THREE.MeshLambertMaterial({ color: 0x263f67 });
-  const pants = new THREE.MeshLambertMaterial({ color: 0x30343b });
-  const boots = new THREE.MeshLambertMaterial({ color: 0x171b20 });
-  const hair = new THREE.MeshLambertMaterial({ color: 0x25201d });
-  const accent = new THREE.MeshLambertMaterial({ color: 0x65d6c4 });
+  const mat = (color, roughness = 1) => new THREE.MeshLambertMaterial({ color });
+  const uniform = mat(0x59634a);
+  const uniformDark = mat(0x343d31);
+  const armor = mat(0x252d2b);
+  const armorEdge = mat(0x414b43);
+  const webbing = mat(0x77745c);
+  const pouchMat = mat(0x454d3d);
+  const bootMat = mat(0x211f1b);
+  const gloveMat = mat(0x292d29);
+  const skin = mat(0x9b765d);
+  const helmetMat = mat(0x414b3d);
+  const goggleMat = mat(0x111b20);
+  const lensMat = new THREE.MeshLambertMaterial({ color: 0x54717a, emissive: 0x101a20 });
+  const maskMat = mat(0x202725);
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.58, 5, 16), clothes);
-  torso.position.y = 1.35;
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.365, 20, 14), accent);
-  chest.position.set(0, 1.48, -0.015); chest.scale.set(1, 0.28, 0.96);
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.16, 8), skin);
-  neck.position.y = 1.82;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 24, 18), skin);
-  head.position.y = 2.05;
-  head.scale.set(0.9, 1.05, 0.9);
-  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.255, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.48), hair);
-  hairCap.position.set(0, 2.12, 0.015);
-  const eyeGeometry = new THREE.SphereGeometry(0.027, 6, 6);
-  const eyesMaterial = new THREE.MeshBasicMaterial({ color: 0x18232b });
-  const leftEye = new THREE.Mesh(eyeGeometry, eyesMaterial);
-  leftEye.position.set(-0.085, 2.07, -0.218);
-  const rightEye = leftEye.clone();
-  rightEye.position.x = 0.085;
+  const addMesh = (geometry, material, parent, position, scale, rotation) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    if (position) mesh.position.set(position[0], position[1], position[2]);
+    if (scale) mesh.scale.set(scale[0], scale[1], scale[2]);
+    if (rotation) mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
+    parent.add(mesh);
+    return mesh;
+  };
+  const box = (parent, material, position, size, rotation) =>
+    addMesh(new THREE.BoxGeometry(size[0], size[1], size[2]), material, parent, position, [1,1,1], rotation);
+  const capsule = (parent, material, position, radius, length, rotation) =>
+    addMesh(new THREE.CapsuleGeometry(radius, length, 4, 10), material, parent, position, [1,1,1], rotation);
 
-  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.5, 0.2), targetDarkMaterialForPlayer());
-  backpack.position.set(0, 1.34, 0.27);
+  // Torso, cuello y cabeza cubiertos por equipo.
+  capsule(player, uniform, [0,1.35,0], 0.32, 0.55);
+  addMesh(new THREE.CylinderGeometry(0.12,0.13,0.16,10), uniformDark, player, [0,1.78,0]);
+  addMesh(new THREE.SphereGeometry(0.235,16,12), skin, player, [0,2.02,0], [0.9,1.05,0.9]);
 
+  // Casco militar con visera, rieles laterales y soporte frontal.
+  addMesh(new THREE.SphereGeometry(0.265,18,12,0,Math.PI*2,0,Math.PI*0.58), helmetMat, player, [0,2.16,0.015], [1.08,0.9,1.02]);
+  box(player, uniformDark, [0,2.105,-0.205], [0.43,0.045,0.12]);
+  box(player, armorEdge, [-0.265,2.13,0.015], [0.045,0.17,0.23]);
+  box(player, armorEdge, [0.265,2.13,0.015], [0.045,0.17,0.23]);
+  box(player, armor, [0,2.22,-0.255], [0.12,0.12,0.045]);
+  addMesh(new THREE.CylinderGeometry(0.012,0.012,0.23,6), armorEdge, player, [0.22,2.29,0.08], null, [0,0,-0.18]);
+
+  // Gafas tácticas y pasamontañas.
+  box(player, goggleMat, [0,2.075,-0.211], [0.39,0.105,0.055]);
+  box(player, lensMat, [-0.095,2.078,-0.243], [0.145,0.067,0.018]);
+  box(player, lensMat, [0.095,2.078,-0.243], [0.145,0.067,0.018]);
+  box(player, armor, [0,2.078,-0.258], [0.035,0.08,0.025]);
+  addMesh(new THREE.SphereGeometry(0.205,14,10), maskMat, player, [0,1.96,-0.055], [0.94,0.62,0.88]);
+  box(player, armorEdge, [0,1.91,-0.226], [0.19,0.07,0.035]);
+  for (let i=0;i<3;i++) box(player, uniformDark, [0,1.94+i*0.035,-0.246], [0.12,0.009,0.008]);
+
+  // Chaleco portaplacas, correas de hombro y cinturón.
+  addMesh(new THREE.BoxGeometry(0.62,0.59,0.23), armor, player, [0,1.39,-0.045], [1,1,1]);
+  box(player, armorEdge, [0,1.68,-0.045], [0.64,0.09,0.24]);
+  box(player, webbing, [-0.205,1.69,-0.055], [0.105,0.42,0.075], [0,0,-0.12]);
+  box(player, webbing, [0.205,1.69,-0.055], [0.105,0.42,0.075], [0,0,0.12]);
+  box(player, uniformDark, [0,1.075,0], [0.69,0.13,0.27]);
+  box(player, armorEdge, [0,1.075,-0.15], [0.12,0.12,0.035]);
+  for (let i=0;i<3;i++) {
+    box(player, pouchMat, [-0.205+i*0.205,1.37,-0.183], [0.16,0.22,0.105]);
+    box(player, webbing, [-0.205+i*0.205,1.47,-0.24], [0.13,0.035,0.018]);
+  }
+  box(player, pouchMat, [-0.39,1.22,-0.07], [0.13,0.2,0.15]);
+  box(player, pouchMat, [0.39,1.22,-0.07], [0.13,0.2,0.15]);
+  // Mochila compacta, bolsillos y correas.
+  box(player, armor, [0,1.39,0.255], [0.43,0.55,0.22]);
+  box(player, pouchMat, [0,1.27,0.385], [0.31,0.22,0.07]);
+  box(player, armorEdge, [0,1.58,0.385], [0.3,0.12,0.07]);
+  box(player, webbing, [-0.2,1.42,0.12], [0.055,0.46,0.06], [0,0,-0.1]);
+  box(player, webbing, [0.2,1.42,0.12], [0.055,0.46,0.06], [0,0,0.1]);
+
+  // Brazos articulados, coderas y guantes.
   const leftArmPivot = new THREE.Group();
-  leftArmPivot.position.set(-0.46, 1.68, 0);
-  const armGeometry = new THREE.CapsuleGeometry(0.105, 0.48, 4, 12);
-  const leftArm = new THREE.Mesh(armGeometry, clothes);
-  leftArm.position.y = -0.34;
-  const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), skin);
-  leftHand.position.y = -0.67;
-  leftArmPivot.add(leftArm, leftHand);
+  leftArmPivot.position.set(-0.43,1.67,0);
+  capsule(leftArmPivot, uniform, [0,-0.31,0], 0.105,0.43,[0,0,-0.12]);
+  addMesh(new THREE.SphereGeometry(0.12,10,8), armorEdge,leftArmPivot,[-0.015,-0.47,-0.005],[1,0.72,0.75]);
+  capsule(leftArmPivot, gloveMat, [0,-0.65,-0.015],0.105,0.12);
+  box(leftArmPivot, pouchMat, [0,-0.28,-0.105],[0.12,0.13,0.045]);
+  player.add(leftArmPivot);
   const rightArmPivot = new THREE.Group();
-  rightArmPivot.position.set(0.46, 1.68, 0);
-  const rightArm = new THREE.Mesh(armGeometry, clothes);
-  rightArm.position.y = -0.34;
-  const rightHand = leftHand.clone();
-  rightHand.position.y = -0.67;
-  rightArmPivot.add(rightArm, rightHand);
+  rightArmPivot.position.set(0.43,1.67,0);
+  capsule(rightArmPivot, uniform, [0,-0.31,0],0.105,0.43,[0,0,0.12]);
+  addMesh(new THREE.SphereGeometry(0.12,10,8),armorEdge,rightArmPivot,[0.015,-0.47,-0.005],[1,0.72,0.75]);
+  capsule(rightArmPivot,gloveMat,[0,-0.65,-0.015],0.105,0.12);
+  box(rightArmPivot,pouchMat,[0,-0.28,-0.105],[0.12,0.13,0.045]);
+  player.add(rightArmPivot);
 
+  // Pantalón táctico, bolsillos cargo, rodilleras y botas.
   const leftLegPivot = new THREE.Group();
-  leftLegPivot.position.set(-0.19, 0.91, 0);
-  const legGeometry = new THREE.CapsuleGeometry(0.135, 0.48, 4, 12);
-  const leftLeg = new THREE.Mesh(legGeometry, pants);
-  leftLeg.position.y = -0.34;
-  const bootGeometry = new THREE.SphereGeometry(0.17, 16, 12);
-  const leftBoot = new THREE.Mesh(bootGeometry, boots);
-  leftBoot.position.set(0, -0.66, -0.09); leftBoot.scale.set(0.9, 0.55, 1.35);
-  leftLegPivot.add(leftLeg, leftBoot);
+  leftLegPivot.position.set(-0.18,0.91,0);
+  capsule(leftLegPivot,uniformDark,[0,-0.31,0],0.13,0.48);
+  box(leftLegPivot,pouchMat,[-0.105,-0.29,-0.015],[0.09,0.2,0.15]);
+  addMesh(new THREE.SphereGeometry(0.145,12,8),armorEdge,leftLegPivot,[0,-0.48,-0.035],[1,0.72,0.55]);
+  addMesh(new THREE.SphereGeometry(0.16,12,8),bootMat,leftLegPivot,[0,-0.67,-0.085],[0.95,0.55,1.35]);
+  box(leftLegPivot,uniformDark,[0,-0.58,-0.03],[0.2,0.08,0.18]);
+  player.add(leftLegPivot);
   const rightLegPivot = new THREE.Group();
-  rightLegPivot.position.set(0.19, 0.91, 0);
-  const rightLeg = new THREE.Mesh(legGeometry, pants);
-  rightLeg.position.y = -0.34;
-  const rightBoot = new THREE.Mesh(bootGeometry, boots);
-  rightBoot.position.set(0, -0.66, -0.09); rightBoot.scale.set(0.9, 0.55, 1.35);
-  rightLegPivot.add(rightLeg, rightBoot);
-
-  player.add(torso, chest, neck, head, hairCap, leftEye, rightEye, backpack,
-    leftArmPivot, rightArmPivot, leftLegPivot, rightLegPivot);
+  rightLegPivot.position.set(0.18,0.91,0);
+  capsule(rightLegPivot,uniformDark,[0,-0.31,0],0.13,0.48);
+  box(rightLegPivot,pouchMat,[0.105,-0.29,-0.015],[0.09,0.2,0.15]);
+  addMesh(new THREE.SphereGeometry(0.145,12,8),armorEdge,rightLegPivot,[0,-0.48,-0.035],[1,0.72,0.55]);
+  addMesh(new THREE.SphereGeometry(0.16,12,8),bootMat,rightLegPivot,[0,-0.67,-0.085],[0.95,0.55,1.35]);
+  box(rightLegPivot,uniformDark,[0,-0.58,-0.03],[0.2,0.08,0.18]);
+  player.add(rightLegPivot);
   player.position.set(0, getHeightAt(0, 15), 15);
   scene.add(player);
   camera.position.set(0, 3.1, 20.5);
